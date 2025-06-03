@@ -1,0 +1,340 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.main{
+  width: 100%;
+  height: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgb(39, 39, 39);
+}
+.view-price{
+  padding: 5vh 0;
+  width: 80%;
+  display: flex;
+  gap: 1vw;
+  flex-direction: column;
+  text-align: center;
+}
+.view-price > h1{
+  font-size: 4vw;
+}
+.view-price > h2{
+  background-color: #242424;
+  display: block;
+  font-size: 5vw;
+  padding: 1vw 0;
+  border-radius: 1vw;
+}
+.bot-page{
+  width: 100%;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1vw;
+  padding: 2vw 0;
+}
+.bot{
+  background-color: #2c2c2c;
+  border-radius: 1vw;  
+  width: 80%;
+  display: flex;
+  justify-content: space-around;
+  gap: 5vw;
+  align-items: center;
+  padding: 2vw;
+  font-size: 1.5vw ;
+  transition: 0.5s ease;
+  cursor: pointer;
+  &:hover{
+  background-color: #1f1f1f;
+  }
+}
+.signal-text{
+  font-size: 4vw;
+  background-color: rgb(29, 29, 29);
+  padding: 0.7vw 2vw;
+  border-radius: 1vw;
+}
+.buy{
+  color: rgb(130, 194, 130);
+  text-shadow: 0 0 10px green;
+}
+.sell{
+  color: rgb(163, 91, 91);
+  text-shadow: 0 0 10px red;
+}
+.backtest-page{
+  /* border: 2px solid red; */
+  width: auto;
+  height: auto;
+  gap: 2vw;
+  padding: 2vw ;
+  display: flex;
+  flex-direction: column;
+}
+.backtest-top{
+  display: flex;
+  width: 100%;
+  gap: 2vw;
+}
+.val-input{
+  flex-basis: 40%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2vw;
+  background-color:#1f1f1f;
+  border-radius: 1vw;
+  box-shadow: 0 0 10px black;
+
+}
+.val-input > h1{
+  font-size: 3vw;
+  margin-bottom: 3vw;
+}
+form{
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.inp-box{
+  margin: 1vw 0;
+  justify-content: space-between;
+  align-items: center;
+  display: flex;
+  width: 80%;
+}
+.btn-box{
+  width: 90%;
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  padding: 1vw 0;
+}
+.inp-box > h1{
+  font-size: 1.2vw;
+}
+.btn-box > button{
+  padding: 0.5vw 1vw;
+  font-size: 1.2vw;
+  color: #000000;
+  background-color: #ffffff;
+  border: 0;
+  border-radius: 0.5vw;
+  cursor: pointer;
+  transition: 0.3s ease;
+  &:hover{
+    color: white;
+    background-color: #292929;
+    box-shadow: 0 0 10px white;
+  }
+  &:active{
+    background-color: #000000;
+  }
+}
+.inp-box > input{
+  font-size: 1.5vw;
+  height: 2vw;
+  padding: 0.2vw 0.2vw;
+}
+.inp-box > select{
+  font-size: 1.5vw;
+  height: 2vw;
+  padding: 0vw 0.2vw;
+  cursor: pointer;
+}
+#strategy-box > select{
+  width: 100%;
+  text-align: center;
+  height: 4vw;
+}
+.result{
+  background-color:#1f1f1f;
+  flex-basis: 60%;
+  box-shadow: 0 0 10px black;
+  border-radius: 1vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  position: relative;
+}
+.load-box{
+  background-color: #00000073;
+  backdrop-filter: blur(10px);
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 1vw;
+}
+.loaderImg{
+  position: absolute;
+  width: 10vw;
+  display: none;
+  z-index: 5;
+  mix-blend-mode: color-burn;
+}
+.loaderImg.active{
+  display: block;
+}
+.res-box{
+  border: 2px solid rgb(61, 61, 61);
+  display: flex;
+  background-color: #2c2c2c;
+  padding: 0.5vw 1vw;
+  border-radius: 1vw;
+  align-items: center;
+  justify-content: space-between;
+  width: 80%;
+  cursor: pointer;
+}
+.backtest-bottom{
+  padding: 1vw;
+  background-color: #1f1f1f;
+  border-radius: 1vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px black;
+
+}
+.backtest-log{
+  padding: 2vw 0;
+  /* border: 2px solid red; */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2vw;
+  align-items: center;
+}
+table{
+  text-align: center;
+  width: 80%;
+  border-collapse: collapse;
+  line-height: 3vw;
+}
+th{
+  background-color: #2c2c2c;
+
+}
+td{
+  background-color: #1f1f1f;
+}
+.green{
+  background-color: green;
+}
+.red{
+  background-color: red;
+}
+.term-page{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 80%;
+  margin: 2vw 0;
+  padding-bottom:2vw;
+  background-color: #1f1f1f;
+  box-shadow: 0 0 10px black;
+  border-radius: 1vw;
+}
+.term-page >h1{
+  margin: 2vw 0;
+  font-size: 3vw;
+}
+.term-opt{
+  box-shadow: 0 0 10px black;
+  background-color: #2c2c2c;
+  border-radius: 1vw;
+  display: flex;
+  width: 60%;
+  padding: 2vw;
+  margin: 1vw;
+  cursor: pointer;
+}
+#term-form{
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+.opt{
+  display: flex;
+  flex-direction: column;
+  gap: 1vw;
+  text-align: center;
+}
+.opt > input,button{
+  padding: 0.5vw 1vw;
+  font-size: 1vw;
+  border-radius: 1vw;
+  border: 0;
+}
+.opt > button{
+  cursor: pointer;
+  transition: 0.5s ease;
+  &:hover{
+    box-shadow: 0 0 10px white;
+    background-color: #2c2c2c;
+  }
+}
+#status-box{
+  justify-content: space-between;
+}
+.status{
+  display: flex;
+  flex-direction: column;
+  gap: 0vw;
+  text-align: center;
+}
+.stats{
+  display: flex;
+  flex-direction: column;
+  gap: 0vw;
+  text-align: center;
+}
+.status-text{
+  font-size: 1vw;
+  color: red;
+}
+.status-text.active{
+  color: green;
+}
+.stop{
+  background-color: rgb(255, 36, 36);
+  border-radius: 1vw;
+  font-size: 1vw;
+  padding: 0.5vw 1vw;
+  transition: 0.5s ease;
+  color: rgb(192, 192, 192);
+  &:hover{
+    color: white;
+    background-color: red;
+    box-shadow: 0 0 10px white
+  }
+}
+.head-status{
+  color: red;
+  background-color: #030303;
+  padding: 0.5vw 1vw;
+  border-radius: 1vw;
+}
+.head-status.active{
+  color: green;
+}
