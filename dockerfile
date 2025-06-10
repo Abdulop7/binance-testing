@@ -2,15 +2,14 @@ FROM node:18
 
 WORKDIR /app
 
-# Copy only the package.json and package-lock.json first (for caching + proper install)
-COPY backend/package*.json ./
+# Step 1: Only copy package files first
+COPY backend/package.json backend/package-lock.json ./
 
-# Install dependencies
+# Step 2: Install dependencies
 RUN npm install
 
-# Now copy the rest of your code
+# Step 3: Copy the rest of your code
 COPY backend/ .
 
-# Run the app
+# Step 4: Define the start command
 CMD ["node", "index.js"]
-
