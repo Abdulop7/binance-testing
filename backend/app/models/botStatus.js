@@ -12,6 +12,10 @@ let botStatusSchema = new Schema({
     lastSignal:{
         type:String,
         default:null
+    },
+    inTrade:{
+        type:Boolean,
+        default:false
     }
 }, {timestamps:true})
 

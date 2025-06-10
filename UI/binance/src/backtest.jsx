@@ -42,7 +42,7 @@ export default function Backtest() {
     setLoader(true)
     evt.preventDefault();
 
-    let res = await axios.get(`http://localhost:100/bot/backtest?pSize=${input.position}&capital=${input.capital}&qty=${input.interval}&symbol=${input.symbol}&ema=${input.ema}`)
+    let res = await axios.get(`http://localhost:100/bot/backtest?pSize=${input.position}&capital=${input.capital}&qty=${input.interval}&symbol=${input.symbol}&ema=${input.ema}&tf=${input.tf}`)
     let result = res.data
 
     setWR(result.winRate)
@@ -68,7 +68,7 @@ export default function Backtest() {
             <h1>Backtesting Module</h1>
             <form action="" onSubmit={getResult}>
               <div className="inp-box" id='strategy-box'>
-                <select name="ema" id="" onChange={changeVal}>
+                <select name="ema" id="" required onChange={changeVal}>
                   <option value="">Choose</option>
                   <option value="8,13,21,55">Fast EMA (8,13,21,55)</option>
                   <option value="5,8,13,200">Slow EMA (5,8,13,200)</option>
@@ -77,7 +77,7 @@ export default function Backtest() {
               </div>
               <div className="inp-box">
                 <label htmlFor='capital'>Select Symbol : </label>
-                <select  name="symbol" id="" onChange={changeVal}>
+                <select  name="symbol" id="" required onChange={changeVal}>
                   <option value="">Choose</option>
                   <option value="BTCUSDT">BTC</option>
                   <option value="ETHUSDT">ETH</option>

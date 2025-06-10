@@ -5,12 +5,15 @@ const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
 
 let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
+let tradeCount = 0; // Global scope (top of the script)
 
-async function updateBotStatus(active, signal) {
+
+async function updateBotStatus(active, signal,inTrade) {
   try {
     await axios.post("http://localhost:100/bot/status", {
       isActive: active,
       lastSignal: signal,
+      inTrade:inTrade
     });
   } catch (err) {
     console.error("Failed to update bot status:", err.message);
@@ -23,61 +26,73 @@ async function getBotStatusFromDB() {
     return res.data;
   } catch (err) {
     console.error("Failed to fetch bot status from DB:", err.message);
-    return { isActive: false, lastSignal: null };
+    return { isActive: false, lastSignal: null,inTrade: false  };
   }
 }
 
 async function placeOrder(signal) {
+  const leverage = 10;
+  const capital = 100; // use your capital here
+  const positionSizeUSD = capital * leverage;
   const res = await axios.get("http://localhost:100/bot/view"); // create this endpoint to return live price
   const entryPrice = res.data;
+
+   const pairQuantity = +(positionSizeUSD / entryPrice).toFixed(2); // round to 2 decimals
 
   //  await placeFuturesOrderWithDollarAmount(signal, dollarAmount);
 
   console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
 
-  console.log("Saving Trade .....");
-  
 
   await axios.post("http://localhost:100/bot/save-trade", {
-    signal:signal,
+    signal: signal,
     time: new Date(),
     price: entryPrice,
+    positionSize:pairQuantity,
+    positionSizeUSD:positionSizeUSD,
+    leverage:leverage
   });
 
-  console.log("Trade Saved ✅");
-  
+  await updateBotStatus(true, signal, true); // now inTrade is true
+
 }
 
 
 async function signalChanged(newSignal) {
-  console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
-  lastSignal = newSignal;
-  await updateBotStatus(true, newSignal);
-  await placeOrder(newSignal);
+
+  const { inTrade } = await getBotStatusFromDB();
+
+  if (newSignal === "WAIT") {
+    console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
+    lastSignal = newSignal;
+    await updateBotStatus(true, newSignal,false);
+
+  } else if(!inTrade) {
+    console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
+    lastSignal = newSignal;
+    await updateBotStatus(true, newSignal);
+    await placeOrder(newSignal);
+  } else {
+    console.log(`Signal is ${newSignal}. But it is Already in Trade`);
+    
+  }
 }
 
 async function checkSignal() {
 
 
 
-    const res = await axios.get("http://localhost:100/bot/ema");
-    const newSignal = res.data.msg.signal;
+  const res = await axios.get("http://localhost:100/bot/ema");
+  const newSignal = res.data.msg.signal;
 
-    
+  if (newSignal !== lastSignal) {
 
-    if(newSignal === "WAIT"){
-
-      console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
-
-    } 
-    else if (newSignal !== lastSignal) {
-      
-      await signalChanged(newSignal);
-    }
-    else {
-      console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
-    } 
-    await checkTPorSL();
+    await signalChanged(newSignal);
+  }
+  else {
+    console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
+  }
+  await checkTPorSL(newSignal);
 
 }
 
@@ -91,7 +106,7 @@ async function stopLoop() {
   clearInterval(intervalRef);
   intervalRef = null;
   lastSignal = null;
-  await updateBotStatus(false, null);
+  await updateBotStatus(false, null,false);
   console.log("Bot stopped.");
 }
 
@@ -109,13 +124,13 @@ async function waitForNext3MinCandle() {
   console.log("✅ Bot Active from DB:", alreadyActive);
 
   const res = await axios.get("http://localhost:100/bot/ema");
-    const newSignal = res.data.msg.signal; 
-    console.log("✅ Last Signal Registered");
-    lastSignal = res.data.msg.signal // Updated the Local LastSignal
-    
+  const newSignal = res.data.msg.signal;
+  console.log("✅ Last Signal Registered");
+  lastSignal = res.data.msg.signal // Updated the Local LastSignal
+
 
   await updateBotStatus(true, newSignal);
-      console.log("✅ Bot marked active in DB");
+  console.log("✅ Bot marked active in DB");
 
   if (alreadyActive) {
     console.log("⛔ Bot is already active. Skipping start.");
@@ -143,74 +158,109 @@ async function waitForNext3MinCandle() {
   }, delay);
 }
 
-async function checkTPorSL() {
-  try{
-
-
+async function checkTPorSL(lastSignal) {
+  try {
     console.log("Checking for Active Trades.....");
 
-    let tradeRes = await axios.get("http://localhost:100/bot/get-trade");
-    const { entryPrice, type } = tradeRes;
-    
+    // Get the active trade data from the backend
+    const tradeRes = await axios.get("http://localhost:100/bot/get-trade");
+    const { entryPrice, type, positionSize, positionSizeUSD, leverage } = tradeRes.data;
+
     console.log("Active Trade Found ✅");
-    
+
+    // Get the current market price
     const res = await axios.get("http://localhost:100/bot/view");
-    const currentPrice = res.data.price;
+    const currentPrice = res.data;
 
-
-    const tp = type === "BUY"
-      ? entryPrice * 1.01
-      : entryPrice * 0.99;
-
+    // Set TP and check SL
+    const tp = type === "BUY" ? entryPrice * 1.01 : entryPrice * 0.99;
     const slBroken = await isSLBroken(type);
 
-    if ((type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp) || slBroken) {
-      console.log(`📉 Exit condition met — closing trade for ${type}`);
+    const hitTP = (type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp);
 
-      const profitPercent = type === "BUY"
-        ? (currentPrice - entryPrice) / entryPrice
-        : (entryPrice - currentPrice) / entryPrice;
+    if (hitTP || slBroken) {
+      // Calculate profit %
+      const profitPercent =
+        type === "BUY"
+          ? (currentPrice - entryPrice) / entryPrice
+          : (entryPrice - currentPrice) / entryPrice;
 
-        // await closePosition('BTCUSDT');
+      // Use actual stored position size in USD
+      const profitDollars = profitPercent * positionSizeUSD - 0.08; // Fee
 
+      // Increment trade count
+      tradeCount++;
+
+      // Save trade history
+      await axios.post("http://localhost:100/bot/save-history", {
+        profit: profitDollars.toFixed(2),
+        entryPrice:entryPrice,
+        time: new Date().toISOString(),
+        tradeNumber: tradeCount,
+        type: type,
+        positionSize: positionSize,
+        positionSizeUSD: positionSizeUSD,
+        leverage: leverage,
+      });
+
+      console.log("About to close Trade....");
+
+      // Clear active trade
+      await updateBotStatus(true, lastSignal, false);
       await axios.post("http://localhost:100/bot/clear-trade");
+
       console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
-      
-    }else{
-
-      console.log("Sl Not Hit");
-      
     }
-      }catch(err){
-        console.log("No Active Trades");
-        
-      }
-
+  } catch (err) {
+    console.log("No Active Trades");
+  }
 }
+
 
 async function isSLBroken(type) {
+  console.log("Checking SL Conditions.....");
 
-    console.log("Checking SL Conditions.....");
-    
+  const res = await axios.get("http://localhost:100/bot/ema");
+  const { ema9, ema21, ema50, ema200 } = res.data.msg;
 
-    const res = await axios.get("http://localhost:100/bot/ema");
-    const { e8, e13, e21, e55 } = res.data;
+  const emaValues = [ema200, ema50, ema21, ema9]; // Assuming 200 is the longest
 
-    if (type === "BUY") return e55 > e21 || e55 > e13 || e55 > e8;
-    if (type === "SELL") return e55 < e21 || e55 < e13 || e55 < e8;
-    return false;
+  if (type === "BUY") {
+    const broken = emaValues.slice(1).some(v => v < emaValues[0]);
+    if (broken) {
+      console.log("Sl Hit (BUY)");
+      return true;
+    } else {
+      console.log("Sl Not Hit (BUY)");
+      return false;
+    }
+  }
 
+  if (type === "SELL") {
+    const broken = emaValues.slice(1).some(v => v > emaValues[0]);
+    if (broken) {
+      console.log("Sl Hit (SELL)");
+      return true;
+    } else {
+      console.log("Sl Not Hit (SELL)");
+      return false;
+    }
+  }
+
+  console.log("Unknown Type or No SL Logic Applied");
+  return false;
 }
 
-async function placeFuturesOrderWithDollarAmount( side, dollarAmount) {
+
+async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
 
   console.log("Place Future Order with Dollar Amount Function is running");
-  
+
   // 1. Get current price
   const priceResponse = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT`);
   const price = parseFloat(priceResponse.data.price);
   console.log("It Calulated the Dollar Amount");
-  
+
 
   // 2. Calculate quantity (contracts)
   const quantity = (dollarAmount / price).toFixed(3); // adjust decimals per symbol precision
@@ -227,7 +277,7 @@ async function placeFuturesOrderWithDollarAmount( side, dollarAmount) {
 async function setLeverage(symbol, leverage) {
 
   console.log("Set Leverage Function is running");
-  
+
 
   return await futuresPostSigned('/fapi/v1/leverage', { symbol, leverage });
 }
@@ -235,33 +285,33 @@ async function setLeverage(symbol, leverage) {
 async function futuresPostSigned(endpoint, params = {}) {
 
   console.log("Futures Post Signed Function is running");
-  
+
 
   const timestamp = Date.now();
   const query = new URLSearchParams({ ...params, timestamp }).toString();
   const signature = signRequest(query, process.env.secretKey);
   const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
 
-    const response = await axios.post(url, null, {
-      headers: {
-        'X-MBX-APIKEY': process.env.apiKey,
-      },
-    });
-    return response.data;
+  const response = await axios.post(url, null, {
+    headers: {
+      'X-MBX-APIKEY': process.env.apiKey,
+    },
+  });
+  return response.data;
 
 }
 
 function signRequest(queryString, secret) {
 
   console.log("Sign Request Function is Running");
-  
+
   return crypto.createHmac('sha256', secret).update(queryString).digest('hex');
 }
 
 async function placeFuturesOrder(symbol, side, quantity) {
 
   console.log("Place Futures Order Function is Running");
-  
+
 
   return await futuresPostSigned('/fapi/v1/order', {
     symbol,
@@ -274,7 +324,7 @@ async function placeFuturesOrder(symbol, side, quantity) {
 async function futuresGetSigned(endpoint, params = {}) {
 
   console.log("Futures Gets Signed Function is Running");
-  
+
 
   const timestamp = Date.now();
   const query = new URLSearchParams({ ...params, timestamp }).toString();
@@ -294,7 +344,7 @@ async function futuresGetSigned(endpoint, params = {}) {
 async function closePosition(symbol) {
 
   console.log("Close Position Function is Running");
-  
+
 
   try {
     // 1. Get current open position

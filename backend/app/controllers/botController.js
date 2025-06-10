@@ -4,6 +4,7 @@ const Binance = require("node-binance-api");
 const { model } = require("mongoose");
 const botrunner = require("../../botrunner");
 const BotStatus = require('../models/botStatus')
+const TradeHistory = require("../models/tradeHistory");
 const binance = new Binance().options({
     APIKEY: process.env.apiKey,
     APISECRET: process.env.secretKey
@@ -20,7 +21,7 @@ async function ViewPrice(req, res) {
 async function candlesFetch(req, res) {
     try {
 
-        let url = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=3m&limit=1000`
+        let url = `https://api.binance.com/api/v3/klines?symbol=SUIUSDT&interval=3m&limit=1000`
         let { data } = await axios.get(url)
         let closes = data.map(candle => parseFloat(candle[4]));
         res.json({ closes })
@@ -37,15 +38,16 @@ async function morecandleFetch(req, res) {
 
     let qty = req.query.qty;
     let symbol = req.query.symbol;
+    let tf = req.query.tf;
     let candleQty = qty / 1000
 
-    
+
 
     let allCloses = [];
     let endTime = Date.now();
 
     for (let i = 0; i < candleQty; i++) { // 20 * 1000 = 20,000 candles
-        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=3m&limit=1000&endTime=${endTime}`;
+        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}m&limit=1000&endTime=${endTime}`;
         const { data } = await axios.get(url);
         if (!data.length) break;
 
@@ -60,6 +62,8 @@ async function morecandleFetch(req, res) {
 }
 
 async function getEma(req, res) {
+    try{
+    
     let response = await axios.get("http://localhost:100/bot/fetch");
 
     let data = response.data.closes;
@@ -75,9 +79,9 @@ async function getEma(req, res) {
     const last200 = ema200[ema200.length - 1];
 
     let signal = "WAIT"; // Try to Remove the Wait
-    if (last200 < last50 && last200 < last21 && last200 < last9) {
+    if (last9 > last21 && last21 > last50 && last50 > last200) {
         signal = "BUY";
-    } else if (last200 > last50 && last200 > last21 && last200 > last9) {
+    } else if (last9 < last21 && last21 < last50 && last50 < last200) {
         signal = "SELL";
     }
 
@@ -91,48 +95,68 @@ async function getEma(req, res) {
             signal
         }
     })
+    }
+    catch(err){
+        console.log({status:0, msg :err});
+        
+    }
 }
 
+function clearOldBacktest() {
+  // Clear previous data
+  trades = [];
+  equityCurve = [];
+}
+
+
 async function doBacktest(req, res) {
-    let capital = parseFloat(req.query.capital); // in $
-    let positionSize = parseFloat(req.query.pSize); // in $ 
+    let capital = parseFloat(req.query.capital);
+    let positionSize = parseFloat(req.query.pSize);
     let qty = parseFloat(req.query.qty);
     let symbol = req.query.symbol;
-    
+    let tf = req.query.tf;
+    let emaQuery = req.query.ema; // "5,8,13,200"
+    let emaPeriods = emaQuery.split(',').map(Number); // [5, 8, 13, 200]
 
-    let response = await axios.get(`http://localhost:100/bot/more-fetch?qty=${qty}&symbol=${symbol}`)
-    let { closes } = response.data
-    
+    // Sort EMAs in descending for consistent logic
+    emaPeriods.sort((a, b) => b - a);
 
-    // Calculate EMAs
-    const ema8 = EMA.calculate({ period: 8, values: closes });
-    const ema13 = EMA.calculate({ period: 13, values: closes });
-    const ema21 = EMA.calculate({ period: 21, values: closes });
-    const ema55 = EMA.calculate({ period: 55, values: closes });
+    // Fetch close prices
+    let response = await axios.get(`http://localhost:100/bot/more-fetch?qty=${qty}&symbol=${symbol}&tf=${tf}`);
+    let { closes } = response.data;
 
-    // Backtest logic
+    clearOldBacktest()
+
+    // Compute all EMAs dynamically
+    let emaMap = {};
+    for (let period of emaPeriods) {
+        emaMap[period] = EMA.calculate({ period, values: closes });
+    }
+
     let trades = [];
     let inPosition = false;
     let entryPrice = 0;
     let tradeType = null;
     let totalProfit = 0;
-    let wins = 0,
-        losses = 0;
+    let wins = 0, losses = 0;
     let equity = capital;
     let equityCurve = [];
 
-    const maxPeriod = 55; // Start from index where all EMAs are valid
+    const maxPeriod = Math.max(...emaPeriods);
 
     for (let i = maxPeriod; i < closes.length; i++) {
         const price = closes[i];
 
-        const e8 = ema8[i - (maxPeriod - 8)];
-        const e13 = ema13[i - (maxPeriod - 13)];
-        const e21 = ema21[i - (maxPeriod - 21)];
-        const e55 = ema55[i - maxPeriod];
+        // Extract EMAs for this index
+        let emaValues = emaPeriods.map(period => {
+            const offset = i - (maxPeriod - period);
+            return emaMap[period][offset];
+        });
 
-        const isBuySignal = e55 < e21 && e21 < e13 && e13 < e8;
-        const isSellSignal = e55 > e21 && e21 > e13 && e13 > e8;
+        // Check if sorted (Buy: descending, Sell: ascending)
+        const isBuySignal = emaValues.every((val, idx, arr) => idx === 0 || arr[idx - 1] > val);
+        const isSellSignal = emaValues.every((val, idx, arr) => idx === 0 || arr[idx - 1] < val);
+
 
         if (!inPosition && (isBuySignal || isSellSignal)) {
             inPosition = true;
@@ -145,24 +169,19 @@ async function doBacktest(req, res) {
         if (inPosition) {
             const lastTrade = trades[trades.length - 1];
 
-            const tpReached =
-                lastTrade.type === "BUY"
-                    ? price >= entryPrice * 1.01
-                    : price <= entryPrice * 0.99;
+            const tpReached = lastTrade.type === "BUY"
+                ? price >= entryPrice * 1.01
+                : price <= entryPrice * 0.99;
 
-            const slTriggered =
-                (lastTrade.type === "BUY" &&
-                    (e55 > e21 || e55 > e13 || e55 > e8)) ||
-                (lastTrade.type === "SELL" &&
-                    (e55 < e21 || e55 < e13 || e55 < e8));
-
+            const slTriggered = lastTrade.type === "BUY"
+                ? emaValues.some(v => v < emaValues[0]) // break in structure
+                : emaValues.some(v => v > emaValues[0]);
 
             if (tpReached || slTriggered) {
                 const exitPrice = price;
                 const profitPercent = lastTrade.type === "BUY"
                     ? (exitPrice - entryPrice) / entryPrice
                     : (entryPrice - exitPrice) / entryPrice;
-
 
                 const profitDollars = profitPercent * positionSize;
                 totalProfit += profitDollars;
@@ -182,7 +201,7 @@ async function doBacktest(req, res) {
         }
     }
 
-    // Calculate Max Drawdown in Dollars
+    // Max Drawdown
     let peak = capital;
     let maxDrawdownDollar = 0;
     for (let value of equityCurve) {
@@ -192,13 +211,11 @@ async function doBacktest(req, res) {
     }
 
     const result = {
+        emaPeriods,
         totalTrades: trades.length,
         wins,
         losses,
-        winRate:
-            trades.length > 0
-                ? ((wins / trades.length) * 100).toFixed(2) + "%"
-                : "0%",
+        winRate: trades.length > 0 ? ((wins / trades.length) * 100).toFixed(2) + "%" : "0%",
         totalProfit: totalProfit.toFixed(2) + " USD",
         finalCapital: (capital + totalProfit).toFixed(2) + " USD",
         maxDrawdownDollar: maxDrawdownDollar.toFixed(2) + " USD",
@@ -243,18 +260,28 @@ async function getBotStatus(req, res) {
 }
 
 async function updBotStatus(req, res) {
-    const { isActive, lastSignal } = req.body; // <-- Accept lastSignal
+    const { isActive, lastSignal, inTrade } = req.body; // ✅ Accept inTrade from request
+
     try {
         let status = await BotStatus.findOne();
 
         if (!status) {
-            status = new BotStatus({ isActive, startedAt: isActive ? new Date() : null });
+            status = new BotStatus({
+                isActive,
+                lastSignal: lastSignal || null,
+                inTrade: inTrade || false,
+                startedAt: isActive ? new Date() : null,
+            });
         } else {
             status.isActive = isActive;
             status.startedAt = isActive ? new Date() : null;
 
             if (lastSignal !== undefined) {
-                status.lastSignal = lastSignal; // <-- Only update if provided
+                status.lastSignal = lastSignal;
+            }
+
+            if (inTrade !== undefined) {
+                status.inTrade = inTrade;
             }
         }
 
@@ -306,13 +333,18 @@ async function StopBot(req, res) {
 
 async function SaveTrade(req, res) {
 
-    const { signal, time, price } = req.body;
+    const { signal, time, price,positionSize,positionSizeUSD,leverage} = req.body;
     activeTrade = {
         entryTime: time,
         entryPrice: price,
         type: signal,
+        positionSize:positionSize,
+        positionSizeUSD: positionSizeUSD,
+        leverage:leverage
     };
     res.json({ message: "Trade saved successfully", activeTrade });
+    console.log({ message: "Trade saved successfully ✅", activeTrade });
+    
 }
 
 async function GetActiveTrades(req, res) {
@@ -322,11 +354,32 @@ async function GetActiveTrades(req, res) {
 }
 
 
-async function ClearTrade(req, res){
+async function ClearTrade(req, res) {
 
     activeTrade = null;
-  res.json({ message: "Active trade cleared" });
+    res.json({ message: "Active trade cleared" });
 
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades,ClearTrade }
+async function SaveHistory(req,res){
+
+    const { tradeNumber, profit, time,type, positionSize, positionSizeUSD, leverage,entryPrice } = req.body;
+
+    const history = new TradeHistory({
+      tradeNumber,
+      entryPrice,
+      profit,
+      time: time || new Date(),
+      type:type,
+      positionSize:positionSize,
+      positionSizeUSD:positionSizeUSD,
+      leverage:leverage
+    });
+
+    await history.save();
+
+    res.status(200).json({ success: true, message: "Trade saved" });
+
+}
+
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade,SaveHistory }

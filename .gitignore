@@ -1,0 +1,8 @@
+# Ignore root-level node_modules
+/node_modules/
+
+# Ignore node_modules in UI/binance
+/UI/binance/node_modules/
+
+# Ignore node_modules in backend
+/backend/node_modules/
