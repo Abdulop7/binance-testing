@@ -19,7 +19,7 @@ WORKDIR /app
 RUN npm install -g pm2
 
 # Copy backend files
-COPY Backend ./backend
+COPY backend ./backend
 
 # Copy React build output to backend/public for Express to serve
 COPY --from=frontend-build /app/frontend/build ./backend/public
