@@ -13,6 +13,15 @@ const BotRouter = require('./app/routes/botRoutes.js');
 
 app.use("/bot",BotRouter)
 
+const path = require('path'); // ✅ Don't forget to import this!
+
+// Serve frontend
+app.use(express.static(path.join(__dirname, '../UI/binance/build')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../UI/binance/build/index.html'));
+});
+
 
 mongoose.connect(process.env.DbUrl).then(()=>{
     console.log("Database Connected to :",process.env.DbUrl);
