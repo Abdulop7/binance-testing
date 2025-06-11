@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: binance-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && node index.js
+    envVars:
+      - key: DbUrl
+        fromEnvVar: DbUrl
+      - key: Port
+        fromEnvVar: Port
+    routes:
+      - type: rewrite
+        source: /.*
+        destination: /index.html
