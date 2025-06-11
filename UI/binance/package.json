@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "vite build && cp -r dist ../backend/build",
+    "build": "vite build && mkdir -p ../backend/build && cp -r dist/* ../backend/build",
     "dev": "vite",
     "lint": "eslint .",
     "preview": "vite preview"
