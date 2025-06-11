@@ -4,7 +4,7 @@ FROM node:18 AS frontend-build
 WORKDIR /app/frontend
 
 # Copy frontend code
-COPY "UI Binance"/ ./
+COPY UI/binance/ ./
 
 # Install and build
 RUN npm install
