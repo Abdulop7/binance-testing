@@ -16,7 +16,7 @@ FROM node:18
 WORKDIR /app
 
 # Install PM2 globally
-RUN npm install -g pm2
+RUN npm install 
 
 # Copy backend files (from lowercase 'backend' folder)
 COPY backend/ ./backend/
@@ -32,4 +32,4 @@ RUN npm install
 EXPOSE 5000
 
 # Start index.js and botrunner.js using PM2
-CMD pm2 start index.js --name api && pm2 start botrunner.js --name bot && pm2-runtime
+CMD start index.js 
