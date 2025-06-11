@@ -14,10 +14,10 @@ const BotRouter = require('./app/routes/botRoutes.js');
 app.use("/bot",BotRouter)
 
 
-mongoose.connect(process.env.MONGO_URI).then(()=>{
+mongoose.connect(process.env.DbUrl).then(()=>{
     console.log("Database Connected to :",process.env.DbUrl);
     
-    app.listen(process.env.Port, () => {
+    app.listen(process.env.PORT,'0.0.0.0', () => {
         console.log("Server is Running on:", process.env.Port);
     
     })

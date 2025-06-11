@@ -62,6 +62,9 @@ async function signalChanged(newSignal) {
 
   const { inTrade } = await getBotStatusFromDB();
 
+  console.log("Checking InTrade From DB inside SignalChanged :",inTrade);
+  
+
   if (newSignal === "WAIT") {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
@@ -72,7 +75,7 @@ async function signalChanged(newSignal) {
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal);
     await placeOrder(newSignal);
-  } else {
+  } else if(inTrade){
     console.log(`Signal is ${newSignal}. But it is Already in Trade`);
     
   }
