@@ -223,7 +223,7 @@ async function checkTPorSL(lastSignal) {
 async function isSLBroken(type) {
   console.log("Checking SL Conditions.....");
 
-  const res = await axios.get("http://localhost:100/bot/ema");
+  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl here 
   const { ema9, ema21, ema50, ema200 } = res.data.msg;
 
   const emaValues = [ema200, ema50, ema21, ema9]; // Assuming 200 is the longest
