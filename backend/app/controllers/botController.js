@@ -268,8 +268,8 @@ async function updBotStatus(req, res) {
         if (!status) {
             status = new BotStatus({
                 isActive,
-                lastSignal: lastSignal || null,
-                inTrade: inTrade || false,
+                lastSignal: lastSignal ,
+                inTrade: inTrade ,
                 startedAt: isActive ? new Date() : null,
             });
         } else {
