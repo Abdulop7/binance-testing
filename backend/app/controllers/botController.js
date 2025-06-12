@@ -64,7 +64,7 @@ async function morecandleFetch(req, res) {
 async function getEma(req, res) {
     try{
     
-    let response = await axios.get("http://localhost:100/bot/fetch");
+    let response = await axios.get("https://binance-backend-6n65.onrender.com/bot/fetch"); // Web APi URL here
 
     let data = response.data.closes;
 
@@ -122,7 +122,7 @@ async function doBacktest(req, res) {
     emaPeriods.sort((a, b) => b - a);
 
     // Fetch close prices
-    let response = await axios.get(`http://localhost:100/bot/more-fetch?qty=${qty}&symbol=${symbol}&tf=${tf}`);
+    let response = await axios.get(`https://binance-backend-6n65.onrender.com/bot/more-fetch?qty=${qty}&symbol=${symbol}&tf=${tf}`); // Web APi URL here
     let { closes } = response.data;
 
     clearOldBacktest()
