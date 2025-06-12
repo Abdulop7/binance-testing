@@ -15,7 +15,7 @@ let activeTrade = null;
 async function ViewPrice(req, res) {
     let response = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${process.env.symbol}`);
     let price = response.data.price
-    let Fprice = Math.round(price * 100) / 100;
+    let Fprice = Math.round(price * 10000) / 10000;
     res.json(Fprice)
 }
 async function candlesFetch(req, res) {
@@ -384,4 +384,10 @@ async function SaveHistory(req,res){
 
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade,SaveHistory }
+async function AllTrades(req,res){
+
+    let trades = await TradeHistory.find().sort({createdAt:-1})
+    res.json(trades)
+}
+
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade,SaveHistory,AllTrades }

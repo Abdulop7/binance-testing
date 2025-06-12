@@ -338,3 +338,20 @@ td{
 .head-status.active{
   color: green;
 }
+.logs{
+  width: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2vw;
+}
+.logs > h1{
+  font-size: 3vw;
+  margin-bottom: 2vw;
+}
+.log-data{
+  width: 100%;
+}
+.log-data > table {
+  width: 100%;
+}
