@@ -10,7 +10,7 @@ let tradeCount = 0; // Global scope (top of the script)
 
 async function updateBotStatus(active, signal,inTrade) {
   try {
-    await axios.post("http://localhost:100/bot/status", {
+    await axios.post("https://binance-backend-6n65.onrender.com/bot/status", { // WebUrl Here
       isActive: active,
       lastSignal: signal,
       inTrade:inTrade
@@ -22,7 +22,7 @@ async function updateBotStatus(active, signal,inTrade) {
 
 async function getBotStatusFromDB() {
   try {
-    const res = await axios.get("http://localhost:100/bot/status");
+    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status"); // WebUrl here
     return res.data;
   } catch (err) {
     console.error("Failed to fetch bot status from DB:", err.message);
@@ -34,7 +34,7 @@ async function placeOrder(signal) {
   const leverage = 10;
   const capital = 100; // use your capital here
   const positionSizeUSD = capital * leverage;
-  const res = await axios.get("http://localhost:100/bot/view"); // create this endpoint to return live price
+  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
   const entryPrice = res.data;
 
    const pairQuantity = +(positionSizeUSD / entryPrice).toFixed(2); // round to 2 decimals
@@ -44,7 +44,7 @@ async function placeOrder(signal) {
   console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
 
 
-  await axios.post("http://localhost:100/bot/save-trade", {
+  await axios.post("https://binance-backend-6n65.onrender.com/bot/save-trade", { // WebUrl Here
     signal: signal,
     time: new Date(),
     price: entryPrice,
@@ -85,7 +85,7 @@ async function checkSignal() {
 
 
 
-  const res = await axios.get("http://localhost:100/bot/ema");
+  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
   const newSignal = res.data.msg.signal;
 
   if (newSignal !== lastSignal) {
@@ -166,13 +166,13 @@ async function checkTPorSL(lastSignal) {
     console.log("Checking for Active Trades.....");
 
     // Get the active trade data from the backend
-    const tradeRes = await axios.get("http://localhost:100/bot/get-trade");
+    const tradeRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade"); // WebUrl here 
     const { entryPrice, type, positionSize, positionSizeUSD, leverage } = tradeRes.data;
 
     console.log("Active Trade Found ✅");
 
     // Get the current market price
-    const res = await axios.get("http://localhost:100/bot/view");
+    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl here
     const currentPrice = res.data;
 
     // Set TP and check SL
@@ -195,7 +195,7 @@ async function checkTPorSL(lastSignal) {
       tradeCount++;
 
       // Save trade history
-      await axios.post("http://localhost:100/bot/save-history", {
+      await axios.post("https://binance-backend-6n65.onrender.com/bot/save-history", { // WebUrl Here
         profit: profitDollars.toFixed(2),
         entryPrice:entryPrice,
         time: new Date().toISOString(),
@@ -210,7 +210,7 @@ async function checkTPorSL(lastSignal) {
 
       // Clear active trade
       await updateBotStatus(true, lastSignal, false);
-      await axios.post("http://localhost:100/bot/clear-trade");
+      await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade"); // WebUrl here
 
       console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
     }
