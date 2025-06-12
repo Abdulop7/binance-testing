@@ -12,7 +12,7 @@ export function BotControllerProvider({ children }) {
   useEffect(() => {
     async function fetchStatus() {
       try {
-        const res = await axios.get("http://localhost:100/bot/status");
+        const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status"); // WebURL Here
         setActive(res.data.isActive);
         setSignalD(res.data.lastSignal);
         
