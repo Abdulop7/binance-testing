@@ -126,7 +126,7 @@ async function waitForNext3MinCandle() {
 
   console.log("✅ Bot Active from DB:", alreadyActive);
 
-  const res = await axios.get("http://localhost:100/bot/ema");
+  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl Here
   const newSignal = res.data.msg.signal;
   console.log("✅ Last Signal Registered");
   lastSignal = res.data.msg.signal // Updated the Local LastSignal
