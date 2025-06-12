@@ -23,7 +23,7 @@ function App() {
   function getPrice(){
 
   axios
-    .get("http://localhost:100/bot/view")
+    .get("https://binance-backend-6n65.onrender.com/bot/view") // WebUrl here 
     .then(res => {
       setCurrPrice(res.data);
     })

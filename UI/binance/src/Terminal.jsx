@@ -9,7 +9,27 @@ import { useBotController } from './botState';
 
 
 export default function Terminal() {
-    const { active, startBot, stopBot} = useBotController();
+    const { active} = useBotController();
+
+    async function startBot(e){
+
+        e.preventDefault();
+
+        axios.post('https://binance-backend-6n65.onrender.com/bot/start-bot')
+        .then(()=>{
+            toast.success("Bot Started")
+        })
+
+    }
+
+    function stopBot(){
+
+        axios.post('https://binance-backend-6n65.onrender.com/bot/stop-bot')
+        .then(()=>{
+            toast.success("Bot Stopped")
+        })
+
+    }
 
 
     return (

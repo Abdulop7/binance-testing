@@ -307,6 +307,8 @@ async function StartBot(req, res) {
 
         await botrunner.startBot();
 
+        res.json({ message: "Bot Started" });
+
     } catch (err) {
         console.error("StartBot error:", err.message);
         if (!res.headersSent) {

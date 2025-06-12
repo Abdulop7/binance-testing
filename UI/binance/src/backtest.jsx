@@ -42,7 +42,7 @@ export default function Backtest() {
     setLoader(true)
     evt.preventDefault();
 
-    let res = await axios.get(`http://localhost:100/bot/backtest?pSize=${input.position}&capital=${input.capital}&qty=${input.interval}&symbol=${input.symbol}&ema=${input.ema}&tf=${input.tf}`)
+    let res = await axios.get(`https://binance-backend-6n65.onrender.com/bot/backtest?pSize=${input.position}&capital=${input.capital}&qty=${input.interval}&symbol=${input.symbol}&ema=${input.ema}&tf=${input.tf}`) // WebUrl Here 
     let result = res.data
 
     setWR(result.winRate)

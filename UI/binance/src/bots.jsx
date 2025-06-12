@@ -8,7 +8,7 @@ export default function Bots() {
 
   async function getSignal(){
 
-    let res = await axios.get("http://localhost:100/bot/ema");
+    let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebURl here
     let data = res.data
     let signal = res.data.msg.signal;
     setSignal(signal)
