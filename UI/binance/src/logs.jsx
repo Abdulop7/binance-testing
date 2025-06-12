@@ -12,7 +12,7 @@ export default function Logs() {
 
     async function fetchTrades() {
 
-      let res = await axios.get("http://localhost:10000/bot/all-trades")
+      let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/all-trades") // WebUrl Here
       let restrades = res.data
       setTrades(restrades)
       console.log(restrades);
