@@ -83,6 +83,16 @@ async function signalChanged(newSignal) {
 
 async function checkSignal() {
 
+    const now = new Date();
+  const hour = now.getHours();
+
+  // ❌ Disable between 7:00 AM and 11:59 AM
+  const paused = hour >= 7 && hour < 12;
+  if (paused) {
+    console.log("⛔ Bot is paused between 7:00 AM and 12:00 PM.");
+    return;
+  }
+
 
 
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
