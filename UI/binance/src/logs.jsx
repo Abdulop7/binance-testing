@@ -14,9 +14,11 @@ export default function Logs() {
 
       let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/all-trades") // WebUrl Here
       let restrades = res.data
-      setTrades(restrades)
-      console.log(restrades);
 
+      // Sort trades by `tradeNumber` descending (latest first)
+      restrades.sort((a, b) => a.tradeNumber - b.tradeNumber);
+
+      setTrades(restrades)
 
     }
     fetchTrades();
@@ -34,6 +36,7 @@ export default function Logs() {
               <thead>
                 <tr>
                   <th>ID</th>
+                  <th>TIME</th>
                   <th>TYPE</th>
                   <th>ENTRY PRICE</th>
                   <th>POSITION SIZE (USD)</th>
@@ -52,6 +55,17 @@ export default function Logs() {
 
                         <tr>
                           <td>{v.tradeNumber}</td>
+                          <td>
+                            {new Date(v.time).toLocaleString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                              timeZone: 'Asia/Karachi'
+                            })}
+                          </td>
                           <td>{v.type}</td>
                           <td>{v.entryPrice}</td>
                           <td>{v.positionSizeUSD}</td>
