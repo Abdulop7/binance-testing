@@ -345,9 +345,22 @@ td{
   align-items: center;
   padding: 2vw;
 }
-.logs > h1{
+.log-head{
+  display: flex;
+  width: 100%;
+  /* border: 2px solid white; */
+  justify-content:center;
+  align-items: center;
+  gap: 20vw;
+  padding-bottom: 2vw;
+} 
+.log-head > h1{
   font-size: 3vw;
-  margin-bottom: 2vw;
+
+}
+.log-head > h2{
+  font-size: 2vw;
+  color:gray;
 }
 .log-data{
   width: 100%;

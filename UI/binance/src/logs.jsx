@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 export default function Logs() {
 
   let [trades, setTrades] = useState([])
-
+  let [tProfit, setTprofit] = useState("")
 
   useEffect(() => {
     console.log("Page Opened");
@@ -20,6 +20,10 @@ export default function Logs() {
 
       setTrades(restrades)
 
+      // Calculate total profit
+      const total = restrades.reduce((sum, trade) => sum + (trade.profit || 0), 0);
+      setTprofit(total.toFixed(2));
+
     }
     fetchTrades();
   }, [])
@@ -30,7 +34,12 @@ export default function Logs() {
       <Header />
       <div className='main'>
         <div className="logs">
-          <h1>All Trades</h1>
+          <div className="log-head">
+
+            <h1>All Trades</h1>
+
+            <h2>Total Profit : {tProfit}$</h2>
+          </div>
           <div className="log-data">
             <table>
               <thead>
