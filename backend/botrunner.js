@@ -84,13 +84,12 @@ async function signalChanged(newSignal) {
 async function checkSignal() {
 
   const now = new Date();
-  const hour = now.getHours();
+  const hour = now.getHours(); // local time
   const minute = now.getMinutes();
 
-  // ⏸️ Pause bot from 07:30 to 12:59
-  const paused = (hour === 7 && minute >= 30) || (hour > 7 && hour < 13);
-  if (paused) {
-    console.log(`⛔ Bot paused from 7:30 AM to 1:00 PM — Current time: ${now.toLocaleTimeString()}`);
+  // ⏸️ Pause bot from 07:00 to 12:59
+  if (hour >= 7 && hour < 13) {
+    console.log(`⛔ Bot paused from 7:00 AM to 1:00 PM`);
     return;
   }
 
