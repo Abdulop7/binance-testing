@@ -397,13 +397,14 @@ async function closePosition(symbol) {
 function pauseMonitorLoop() {
   setInterval(async () => {
     const now = new Date();
-    const hour = now.getHours();
+    const utcHour = now.getUTCHours(); // Always in UTC
+    const pkHour = (utcHour + 5) % 24; // Convert to Pakistan time
 
-    if (hour >= 7 && hour < 13) {
-      console.log(`⛔ Bot paused from 7:00 AM to 1:00 PM — Current time: ${now.toLocaleTimeString()}`);
-      await updateBotStatus(false, null, false); // Mark as inactive in DB
+    if (pkHour >= 7 && pkHour < 13) {
+      console.log(`⛔ Bot paused from 7:00 AM to 1:00 PM (PKT) — Current time in PKT: ${pkHour}:00`);
+      await updateBotStatus(false, null, false);
     } else {
-      console.log(`✅ Bot active hours — Current time: ${now.toLocaleTimeString()}`);
+      console.log(`✅ Bot active hours (PKT) — Current time: ${pkHour}:00`);
     }
   }, 60 * 1000); // every 3 minutes
 }
