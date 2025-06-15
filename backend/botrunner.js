@@ -37,16 +37,19 @@ async function placeOrder(signal) {
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
   const entryPrice = res.data;
 
-   const pairQuantity = entryPrice; // round to 2 decimals
+   const pairQuantity = (positionSizeUSD / entryPrice).toFixed(4); // ✅ More precise for low-price tokens
 
   //  await placeFuturesOrderWithDollarAmount(signal, dollarAmount);
+
+  // ⏰ Pakistan time manually (UTC + 5)
+  const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
 
   console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
 
 
   await axios.post("https://binance-backend-6n65.onrender.com/bot/save-trade", { // WebUrl Here
     signal: signal,
-    time: new Date(),
+    time: pakTime.toISOString(), // Saved in ISO format but in PKT
     price: entryPrice,
     positionSize:pairQuantity,
     positionSizeUSD:positionSizeUSD,

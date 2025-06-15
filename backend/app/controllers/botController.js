@@ -13,7 +13,7 @@ const binance = new Binance().options({
 let activeTrade = null;
 
 async function ViewPrice(req, res) {
-    let response = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${process.env.symbol}`);
+    let response = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${process.env.symbol}`);
     let price = response.data.price
     let Fprice = Math.round(price * 10000) / 10000;
     res.json(Fprice)
