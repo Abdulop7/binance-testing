@@ -84,27 +84,27 @@ async function signalChanged(newSignal) {
 async function checkSignal() {
 
   const now = new Date();
-  const hour = now.getHours(); // local time
-  const minute = now.getMinutes();
+  const pkHour = (now.getUTCHours() + 5) % 24;
 
-  // ⏸️ Pause bot from 07:00 to 12:59
-  if (hour >= 7 && hour < 13) {
-    console.log(`⛔ Bot paused from 7:00 AM to 1:00 PM`);
+  if (pkHour >= 7 && pkHour < 13) {
+    console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
     return;
+
   }
+  else{
 
-
-  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
-  const newSignal = res.data.msg.signal;
-
-  if (newSignal !== lastSignal) {
-
-    await signalChanged(newSignal);
+    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
+    const newSignal = res.data.msg.signal;
+  
+    if (newSignal !== lastSignal) {
+  
+      await signalChanged(newSignal);
+    }
+    else {
+      console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
+    }
+    await checkTPorSL(newSignal);
   }
-  else {
-    console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
-  }
-  await checkTPorSL(newSignal);
 
 }
 
@@ -164,6 +164,7 @@ async function waitForNext3MinCandle() {
     try {
 
       startLoop(); // should log "✅ startLoop triggered"
+      pauseMonitorLoop();    // Logs every 3 minutes to prevent sleeping
     } catch (err) {
       console.error("❌ Failed to start bot inside timeout:", err.message);
     }
@@ -406,10 +407,9 @@ function pauseMonitorLoop() {
     } else {
       console.log(`✅ Bot active hours (PKT) — Current time: ${pkHour}:00`);
     }
-  }, 60 * 1000); // every 3 minutes
+  }, 3 * 60 * 1000); // every 3 minutes
 }
 
-pauseMonitorLoop(); // Starts pause-monitoring loop immediately
 
 module.exports = {
   startBot: waitForNext3MinCandle,
