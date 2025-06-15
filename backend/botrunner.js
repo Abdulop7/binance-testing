@@ -394,6 +394,22 @@ async function closePosition(symbol) {
 }
 
 
+function pauseMonitorLoop() {
+  setInterval(async () => {
+    const now = new Date();
+    const hour = now.getHours();
+
+    if (hour >= 7 && hour < 13) {
+      console.log(`⛔ Bot paused from 7:00 AM to 1:00 PM — Current time: ${now.toLocaleTimeString()}`);
+      await updateBotStatus(false, null, false); // Mark as inactive in DB
+    } else {
+      console.log(`✅ Bot active hours — Current time: ${now.toLocaleTimeString()}`);
+    }
+  }, 60 * 1000); // every 3 minutes
+}
+
+pauseMonitorLoop(); // Starts pause-monitoring loop immediately
+
 module.exports = {
   startBot: waitForNext3MinCandle,
   stopBot: stopLoop,
