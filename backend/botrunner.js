@@ -71,7 +71,7 @@ async function signalChanged(newSignal) {
   if (newSignal === "WAIT") {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
-    await updateBotStatus(true, newSignal,false);
+    await updateBotStatus(true, newSignal);
 
   } else if(!inTrade) {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);

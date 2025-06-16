@@ -21,7 +21,7 @@ async function ViewPrice(req, res) {
 async function candlesFetch(req, res) {
     try {
 
-        let url = `https://api.binance.com/api/v3/klines?symbol=SUIUSDT&interval=3m&limit=1000`
+        let url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`
         let { data } = await axios.get(url)
         let closes = data.map(candle => parseFloat(candle[4]));
         res.json({ closes })
