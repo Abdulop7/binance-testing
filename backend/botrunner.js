@@ -91,8 +91,7 @@ async function checkSignal() {
 
   if (pkHour >= 7 && pkHour < 13) {
     console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
-    return;
-
+    await updateBotStatus(true, null, true);
   }
   else{
 
@@ -167,7 +166,7 @@ async function waitForNext3MinCandle() {
     try {
 
       startLoop(); // should log "✅ startLoop triggered"
-      pauseMonitorLoop();    // Logs every 3 minutes to prevent sleeping
+      // pauseMonitorLoop();    // Logs every 3 minutes to prevent sleeping
     } catch (err) {
       console.error("❌ Failed to start bot inside timeout:", err.message);
     }
@@ -398,20 +397,20 @@ async function closePosition(symbol) {
 }
 
 
-function pauseMonitorLoop() {
-  setInterval(async () => {
-    const now = new Date();
-    const utcHour = now.getUTCHours(); // Always in UTC
-    const pkHour = (utcHour + 5) % 24; // Convert to Pakistan time
+// function pauseMonitorLoop() {
+//   setInterval(async () => {
+//     const now = new Date();
+//     const utcHour = now.getUTCHours(); // Always in UTC
+//     const pkHour = (utcHour + 5) % 24; // Convert to Pakistan time
 
-    if (pkHour >= 7 && pkHour < 13) {
-      console.log(`⛔ Bot paused from 7:00 AM to 1:00 PM (PKT) — Current time in PKT: ${pkHour}:00`);
-      await updateBotStatus(false, null, false);
-    } else {
-      console.log(`✅ Bot active hours (PKT) — Current time: ${pkHour}:00`);
-    }
-  }, 3 * 60 * 1000); // every 3 minutes
-}
+//     if (pkHour >= 7 && pkHour < 13) {
+//       console.log(`⛔ Bot paused from 7:00 AM to 1:00 PM (PKT) — Current time in PKT: ${pkHour}:00`);
+//       await updateBotStatus(true, null, true);
+//     } else {
+//       console.log(`✅ Bot active hours (PKT) — Current time: ${pkHour}:00`);
+//     }
+//   }, 3 * 60 * 1000); // every 3 minutes
+// }
 
 
 module.exports = {
