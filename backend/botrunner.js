@@ -175,7 +175,6 @@ async function waitForNext3MinCandle() {
 
 async function checkTPorSL(lastSignal) {
   try {
-    console.log("Checking for Active Trades.....");
 
     // Get the active trade data from the backend
     const tradeRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade"); // WebUrl here 
@@ -218,8 +217,6 @@ async function checkTPorSL(lastSignal) {
         leverage: leverage,
       });
 
-      console.log("About to close Trade....");
-
       // Clear active trade
       await updateBotStatus(true, lastSignal, false);
       await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade"); // WebUrl here
@@ -233,7 +230,6 @@ async function checkTPorSL(lastSignal) {
 
 
 async function isSLBroken(type) {
-  console.log("Checking SL Conditions.....");
 
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl here 
   const { ema9, ema21, ema50, ema200 } = res.data.msg;
