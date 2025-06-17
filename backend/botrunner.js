@@ -71,12 +71,12 @@ async function signalChanged(newSignal) {
   if (newSignal === "WAIT") {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
-    await updateBotStatus(true, newSignal);
+    await updateBotStatus(true, newSignal,inTrade);
 
   } else if(!inTrade) {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
-    await updateBotStatus(true, newSignal);
+    await updateBotStatus(true, newSignal , inTrade);
     await placeOrder(newSignal);
   } else if(inTrade){
     console.log(`Signal is ${newSignal}. But it is Already in Trade`);
@@ -92,7 +92,6 @@ async function checkSignal() {
   if (pkHour >= 7 && pkHour < 13) {
     console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
     checkTPorSL(null)
-    await updateBotStatus(true, null, true);
   }
   else{
 
@@ -144,7 +143,7 @@ async function waitForNext3MinCandle() {
   lastSignal = res.data.msg.signal // Updated the Local LastSignal
 
 
-  await updateBotStatus(true, newSignal);
+  await updateBotStatus(true, newSignal,false);
   console.log("✅ Bot marked active in DB");
 
   if (alreadyActive) {
