@@ -39,6 +39,10 @@ useEffect(()=>{
       <div className="home-div">
         <h1>Bot Status</h1>
         <div className="home-status">
+          {
+            inTrade
+            ?
+            <>
           <div className="home-secs">
             <h1>In Trade :</h1>
             <h1 className={`inTrade ${ inTrade ? 'active' : ''}`} >{ inTrade ? "True" : "False"}</h1>
@@ -63,6 +67,13 @@ useEffect(()=>{
             <h1>Leverage :</h1>
             <h1  >{ inTrade  ? leverage : 'No Trade Found'}</h1>
           </div>
+            </>
+          :
+
+          <h1>No Active Trade</h1>
+
+            
+          }
         </div>
       </div>
     </div>
