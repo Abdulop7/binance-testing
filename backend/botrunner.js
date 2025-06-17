@@ -91,6 +91,7 @@ async function checkSignal() {
 
   if (pkHour >= 7 && pkHour < 13) {
     console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
+    checkTPorSL(null)
     await updateBotStatus(true, null, true);
   }
   else{
