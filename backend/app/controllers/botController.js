@@ -340,14 +340,15 @@ async function StopBot(req, res) {
 
 async function SaveTrade(req, res) {
 
-    const { signal, time, price, positionSize, positionSizeUSD, leverage } = req.body;
+    const { signal, time, price, positionSize, positionSizeUSD, leverage, candleTimestamp } = req.body;
     activeTrade = {
         entryTime: time,
         entryPrice: price,
         type: signal,
         positionSize: positionSize,
         positionSizeUSD: positionSizeUSD,
-        leverage: leverage
+        leverage: leverage,
+        candleTimestamp
     };
     res.json({ message: "Trade saved successfully", activeTrade });
     console.log({ message: "Trade saved successfully ✅", activeTrade });

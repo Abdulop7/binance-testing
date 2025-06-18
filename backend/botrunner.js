@@ -8,12 +8,12 @@ let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
 
 
-async function updateBotStatus(active, signal,inTrade) {
+async function updateBotStatus(active, signal, inTrade) {
   try {
     await axios.post("https://binance-backend-6n65.onrender.com/bot/status", { // WebUrl Here
       isActive: active,
       lastSignal: signal,
-      inTrade:inTrade
+      inTrade: inTrade
     });
   } catch (err) {
     console.error("Failed to update bot status:", err.message);
@@ -26,7 +26,7 @@ async function getBotStatusFromDB() {
     return res.data;
   } catch (err) {
     console.error("Failed to fetch bot status from DB:", err.message);
-    return { isActive: false, lastSignal: null,inTrade: false  };
+    return { isActive: false, lastSignal: null, inTrade: false };
   }
 }
 
@@ -37,12 +37,16 @@ async function placeOrder(signal) {
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
   const entryPrice = res.data;
 
-   const pairQuantity = (positionSizeUSD / entryPrice).toFixed(4); // ✅ More precise for low-price tokens
+  const pairQuantity = (positionSizeUSD / entryPrice).toFixed(4); // ✅ More precise for low-price tokens
 
   //  await placeFuturesOrderWithDollarAmount(signal, dollarAmount);
 
   // ⏰ Pakistan time manually (UTC + 5)
   const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
+
+  // ⏰ Get 3m candle timestamp
+  const now = Date.now();
+  const candleTimestamp = now - (now % (3 * 60 * 1000)); // <-- 🆕 This is the key
 
   console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
 
@@ -51,9 +55,10 @@ async function placeOrder(signal) {
     signal: signal,
     time: pakTime.toISOString(), // Saved in ISO format but in PKT
     price: entryPrice,
-    positionSize:pairQuantity,
-    positionSizeUSD:positionSizeUSD,
-    leverage:leverage
+    positionSize: pairQuantity,
+    positionSizeUSD: positionSizeUSD,
+    leverage: leverage,
+    candleTimestamp // 🆕 New field
   });
 
   await updateBotStatus(true, signal, true); // now inTrade is true
@@ -65,22 +70,22 @@ async function signalChanged(newSignal) {
 
   const { inTrade } = await getBotStatusFromDB();
 
-  console.log("Checking InTrade From DB inside SignalChanged :",inTrade);
-  
+  console.log("Checking InTrade From DB inside SignalChanged :", inTrade);
+
 
   if (newSignal === "WAIT") {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
-    await updateBotStatus(true, newSignal,inTrade);
+    await updateBotStatus(true, newSignal, inTrade);
 
-  } else if(!inTrade) {
+  } else if (!inTrade) {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
-    await updateBotStatus(true, newSignal , inTrade);
+    await updateBotStatus(true, newSignal, inTrade);
     await placeOrder(newSignal);
-  } else if(inTrade){
+  } else if (inTrade) {
     console.log(`Signal is ${newSignal}. But it is Already in Trade`);
-    
+
   }
 }
 
@@ -93,13 +98,13 @@ async function checkSignal() {
     console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
     checkTPorSL(null)
   }
-  else{
+  else {
 
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
     const newSignal = res.data.msg.signal;
-  
+
     if (newSignal !== lastSignal) {
-  
+
       await signalChanged(newSignal);
     }
     else {
@@ -120,7 +125,7 @@ async function stopLoop() {
   clearInterval(intervalRef);
   intervalRef = null;
   lastSignal = null;
-  await updateBotStatus(false, null,false);
+  await updateBotStatus(false, null, false);
   console.log("Bot stopped.");
 }
 
@@ -143,7 +148,7 @@ async function waitForNext3MinCandle() {
   lastSignal = res.data.msg.signal // Updated the Local LastSignal
 
 
-  await updateBotStatus(true, newSignal,false);
+  await updateBotStatus(true, newSignal, false);
   console.log("✅ Bot marked active in DB");
 
   if (alreadyActive) {
@@ -178,9 +183,16 @@ async function checkTPorSL(lastSignal) {
 
     // Get the active trade data from the backend
     const tradeRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade"); // WebUrl here 
-    const { entryPrice, type, positionSize, positionSizeUSD, leverage } = tradeRes.data;
+    const { entryPrice, type, positionSize, positionSizeUSD, leverage, candleTimestamp } = tradeRes.data;
 
     console.log("Active Trade Found ✅");
+
+    if (parseInt(candleTimestamp) === currentCandleTimestamp) {
+
+      console.log("📛 Trade is still in entry candle — skipping SL/TP check");
+
+    }
+    else{
 
     // Get the current market price
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl here
@@ -208,7 +220,7 @@ async function checkTPorSL(lastSignal) {
       // Save trade history
       await axios.post("https://binance-backend-6n65.onrender.com/bot/save-history", { // WebUrl Here
         profit: profitDollars.toFixed(2),
-        entryPrice:entryPrice,
+        entryPrice: entryPrice,
         time: new Date().toISOString(),
         tradeNumber: tradeCount,
         type: type,
@@ -223,6 +235,7 @@ async function checkTPorSL(lastSignal) {
 
       console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
     }
+  }
   } catch (err) {
     console.log("No Active Trades");
   }
