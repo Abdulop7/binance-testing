@@ -181,6 +181,10 @@ async function waitForNext3MinCandle() {
 async function checkTPorSL(lastSignal) {
   try {
 
+    const now = Date.now();
+    const currentCandleTimestamp = now - (now % (3 * 60 * 1000));
+
+
     // Get the active trade data from the backend
     const tradeRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade"); // WebUrl here 
     const { entryPrice, type, positionSize, positionSizeUSD, leverage, candleTimestamp } = tradeRes.data;
@@ -192,50 +196,50 @@ async function checkTPorSL(lastSignal) {
       console.log("📛 Trade is still in entry candle — skipping SL/TP check");
 
     }
-    else{
+    else {
 
-    // Get the current market price
-    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl here
-    const currentPrice = res.data;
+      // Get the current market price
+      const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl here
+      const currentPrice = res.data;
 
-    // Set TP and check SL
-    const tp = type === "BUY" ? entryPrice * 1.01 : entryPrice * 0.99;
-    const slBroken = await isSLBroken(type);
+      // Set TP and check SL
+      const tp = type === "BUY" ? entryPrice * 1.01 : entryPrice * 0.99;
+      const slBroken = await isSLBroken(type);
 
-    const hitTP = (type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp);
+      const hitTP = (type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp);
 
-    if (hitTP || slBroken) {
-      // Calculate profit %
-      const profitPercent =
-        type === "BUY"
-          ? (currentPrice - entryPrice) / entryPrice
-          : (entryPrice - currentPrice) / entryPrice;
+      if (hitTP || slBroken) {
+        // Calculate profit %
+        const profitPercent =
+          type === "BUY"
+            ? (currentPrice - entryPrice) / entryPrice
+            : (entryPrice - currentPrice) / entryPrice;
 
-      // Use actual stored position size in USD
-      const profitDollars = profitPercent * positionSizeUSD - 0.08; // Fee
+        // Use actual stored position size in USD
+        const profitDollars = profitPercent * positionSizeUSD - 0.08; // Fee
 
-      // Increment trade count
-      tradeCount++;
+        // Increment trade count
+        tradeCount++;
 
-      // Save trade history
-      await axios.post("https://binance-backend-6n65.onrender.com/bot/save-history", { // WebUrl Here
-        profit: profitDollars.toFixed(2),
-        entryPrice: entryPrice,
-        time: new Date().toISOString(),
-        tradeNumber: tradeCount,
-        type: type,
-        positionSize: positionSize,
-        positionSizeUSD: positionSizeUSD,
-        leverage: leverage,
-      });
+        // Save trade history
+        await axios.post("https://binance-backend-6n65.onrender.com/bot/save-history", { // WebUrl Here
+          profit: profitDollars.toFixed(2),
+          entryPrice: entryPrice,
+          time: new Date().toISOString(),
+          tradeNumber: tradeCount,
+          type: type,
+          positionSize: positionSize,
+          positionSizeUSD: positionSizeUSD,
+          leverage: leverage,
+        });
 
-      // Clear active trade
-      await updateBotStatus(true, lastSignal, false);
-      await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade"); // WebUrl here
+        // Clear active trade
+        await updateBotStatus(true, lastSignal, false);
+        await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade"); // WebUrl here
 
-      console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
+        console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
+      }
     }
-  }
   } catch (err) {
     console.log("No Active Trades");
   }
