@@ -38,7 +38,10 @@ export default function Logs() {
 
             <h1>All Trades</h1>
 
-            <h2>Total Profit : {tProfit}$</h2>
+            <h2 style={{ color: tProfit >= 0 ? '#81c784' : '#e57373' }}>
+              Total Profit: {tProfit}$
+            </h2>
+
           </div>
           <div className="log-data">
             <table>
@@ -62,7 +65,7 @@ export default function Logs() {
 
                       return (
 
-                        <tr>
+                        <tr key={v.tradeNumber}>
                           <td>{v.tradeNumber}</td>
                           <td>
                             {new Date(v.time).toLocaleString('en-GB', {
@@ -75,12 +78,12 @@ export default function Logs() {
                               timeZone: 'Asia/Karachi'
                             })}
                           </td>
-                          <td>{v.type}</td>
+                          <td className={v.type}>{v.type}</td>
                           <td>{v.entryPrice}</td>
                           <td>{v.positionSizeUSD}</td>
                           <td>{v.positionSize}</td>
                           <td>{v.leverage}</td>
-                          <td>{v.profit}</td>
+                          <td className={v.profit >= 0 ? "positive" : "negative"}>{v.profit}$</td>
                         </tr>
 
                       )

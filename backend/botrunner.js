@@ -97,7 +97,7 @@ async function checkSignal() {
   if (pkHour >= 7 && pkHour < 13) {
     console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
     checkTPorSL(null)
-  }
+  } 
   else {
 
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
@@ -171,10 +171,9 @@ async function waitForNext3MinCandle() {
     try {
 
       startLoop(); // should log "✅ startLoop triggered"
-      // pauseMonitorLoop();    // Logs every 3 minutes to prevent sleeping
     } catch (err) {
       console.error("❌ Failed to start bot inside timeout:", err.message);
-    }
+    } 
   }, delay);
 }
 
@@ -191,7 +190,7 @@ async function checkTPorSL(lastSignal) {
 
     console.log("Active Trade Found ✅");
 
-    if (parseInt(candleTimestamp) === currentCandleTimestamp) {
+    if (parseInt(candleTimestamp) === currentCandleTimestamp) {  
 
       console.log("📛 Trade is still in entry candle — skipping SL/TP check");
 
@@ -209,6 +208,7 @@ async function checkTPorSL(lastSignal) {
       const hitTP = (type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp);
 
       if (hitTP || slBroken) {
+        
         // Calculate profit %
         const profitPercent =
           type === "BUY"
