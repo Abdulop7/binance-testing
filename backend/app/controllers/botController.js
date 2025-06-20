@@ -94,7 +94,7 @@ async function getEma(req, res) {
 
         let response = await axios.get("https://binance-backend-6n65.onrender.com/bot/fetch"); // Web APi URL here
 
-        let data = response.data?.ohlcv.closes;
+        const data = response.data?.ohlcv?.map(c => c.closes);
 
         if (!Array.isArray(data) || data.length < 60) {
             console.error("❌ EMA error: Invalid or missing candle data");
