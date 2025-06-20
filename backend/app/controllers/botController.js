@@ -15,10 +15,17 @@ let activeTrade = null;
 
 async function getAtr(req, res) {
 
-    const candles = await candlesFetch(); // fetch open, high, low, close
-    const highs = candles.map(c => c.high);
-    const lows = candles.map(c => c.low);
-    const closes = candles.map(c => c.closes);
+    const {data} = await axios.get("https://binance-backend-6n65.onrender.com/bot/fetch"); // fetch open, high, low, close
+    const {ohlcv} = data;
+
+    if (!Array.isArray(ohlcv) || ohlcv.length < 14) {
+      return res.status(400).json({ status: 0, msg: "Not enough data for ATR calculation" });
+    }
+    else{
+
+    const highs = ohlcv.map(c => c.high);
+    const lows = ohlcv.map(c => c.low);
+    const closes = ohlcv.map(c => c.closes);
 
     const atr = ATR.calculate({
         period: 14, // or your desired length
@@ -29,7 +36,7 @@ async function getAtr(req, res) {
 
     const latestATR = atr[atr.length - 1];
     res.json({ atr: latestATR });
-
+}
 }
 
 async function ViewPrice(req, res) {
