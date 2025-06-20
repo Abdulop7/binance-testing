@@ -37,7 +37,7 @@ async function placeOrder(signal) {
 
   const {atr} = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
 
-  if(atr <= 0.005){
+  if(atr <= 0.006){
     console.log(`⛔ ATR too low at ${atr} — skipping trade.`);
   }
   else{
