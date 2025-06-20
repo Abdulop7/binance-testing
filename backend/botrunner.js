@@ -34,6 +34,14 @@ async function placeOrder(signal) {
   const leverage = 10;
   const capital = 100; // use your capital here
   const positionSizeUSD = capital * leverage;
+
+  const {atr} = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
+
+  if(atr <= 0.005){
+    console.log(`⛔ ATR too low at ${atr} — skipping trade.`);
+  }
+  else{
+
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
   const entryPrice = res.data;
 
@@ -62,7 +70,7 @@ async function placeOrder(signal) {
   });
 
   await updateBotStatus(true, signal, true); // now inTrade is true
-
+  }
 }
 
 
@@ -202,7 +210,7 @@ async function checkTPorSL(lastSignal) {
       const currentPrice = res.data;
 
       // Set TP and check SL
-      const tp = type === "BUY" ? entryPrice * 1.01 : entryPrice * 0.99;
+      const tp = type === "BUY" ? entryPrice * 1.005 : entryPrice * 0.995;
       const slBroken = await isSLBroken(type);
 
       const hitTP = (type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp);

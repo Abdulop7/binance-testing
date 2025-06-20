@@ -5,12 +5,32 @@ const { model } = require("mongoose");
 const botrunner = require("../../botrunner");
 const BotStatus = require('../models/botStatus')
 const TradeHistory = require("../models/tradeHistory");
+const { ATR } = require('technicalindicators');
 const binance = new Binance().options({
     APIKEY: process.env.apiKey,
     APISECRET: process.env.secretKey
 });
 
 let activeTrade = null;
+
+async function getAtr(req, res) {
+
+    const candles = await candlesFetch(); // fetch open, high, low, close
+    const highs = candles.map(c => c.high);
+    const lows = candles.map(c => c.low);
+    const closes = candles.map(c => c.closes);
+
+    const atr = ATR.calculate({
+        period: 14, // or your desired length
+        high: highs,
+        low: lows,
+        close: closes
+    });
+
+    const latestATR = atr[atr.length - 1];
+    res.json({ atr: latestATR });
+
+}
 
 async function ViewPrice(req, res) {
     let response = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${process.env.symbol}`);
@@ -20,19 +40,27 @@ async function ViewPrice(req, res) {
 }
 async function candlesFetch(req, res) {
     try {
+        const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`;
+        const { data } = await axios.get(url);
 
-        let url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`
-        let { data } = await axios.get(url)
-        let closes = data.map(candle => parseFloat(candle[4]));
-        res.json({ closes })
-    }
-    catch (err) {
+        const ohlcv = data.map(candle => ({
+            time: candle[0],
+            open: parseFloat(candle[1]),
+            high: parseFloat(candle[2]),
+            low: parseFloat(candle[3]),
+            closes: parseFloat(candle[4]),
+            volume: parseFloat(candle[5])
+        }));
+
+        res.json({ ohlcv });
+    } catch (err) {
         res.send({
             status: 0,
-            msg: err
-        })
+            msg: err.message || "Failed to fetch candle data"
+        });
     }
 }
+
 
 async function morecandleFetch(req, res) {
 
@@ -66,7 +94,7 @@ async function getEma(req, res) {
 
         let response = await axios.get("https://binance-backend-6n65.onrender.com/bot/fetch"); // Web APi URL here
 
-        let data = response.data?.closes;
+        let data = response.data?.ohlcv.closes;
 
         if (!Array.isArray(data) || data.length < 60) {
             console.error("❌ EMA error: Invalid or missing candle data");
@@ -396,4 +424,4 @@ async function AllTrades(req, res) {
     res.json(trades)
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades }
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades,getAtr }
