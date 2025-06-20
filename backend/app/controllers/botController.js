@@ -35,7 +35,7 @@ async function getAtr(req, res) {
     });
 
     const latestATR = atr[atr.length - 1];
-    res.json({ atr: latestATR });
+    res.json({ atr: Number(latestATR.toFixed(4)) });
 }
 }
 
