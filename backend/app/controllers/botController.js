@@ -431,4 +431,11 @@ async function AllTrades(req, res) {
     res.json(trades)
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades,getAtr }
+async function TradeNumber(req, res) {
+
+     const latestTrade = await TradeHistory.findOne().sort({ tradeNumber: -1 });
+  const tradeNumber = latestTrade ? latestTrade.tradeNumber : 0;
+  res.json({ tradeNumber });
+}
+
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades,getAtr,TradeNumber }

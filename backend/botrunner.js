@@ -145,6 +145,12 @@ async function isBotActive() {
   return isActive;
 }
 
+async function initTradeCount() {
+  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/last-trade");
+  tradeCount = res.data.tradeNumber;
+  console.log("✅ Trade count restored to:", tradeCount);
+}
+
 async function waitForNext3MinCandle() {
 
   console.log("⚙️  3min Function Running");
@@ -161,6 +167,8 @@ async function waitForNext3MinCandle() {
 
   await updateBotStatus(true, newSignal, false);
   console.log("✅ Bot marked active in DB");
+
+  await initTradeCount();
 
   if (alreadyActive) {
     console.log("⛔ Bot is already active. Skipping start.");
