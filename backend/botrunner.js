@@ -34,8 +34,11 @@ async function placeOrder(signal) {
   const leverage = 10;
   const capital = 100; // use your capital here
   const positionSizeUSD = capital * leverage;
+  const {data} = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
+  const {atr} = data;
 
-  const {atr} = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
+  console.log(`Atr is ${atr}`);
+  
 
   if(atr <= 0.006){
     console.log(`⛔ ATR too low at ${atr} — skipping trade.`);
