@@ -19,8 +19,8 @@ async function updateBotStatus(active, signal, inTrade) {
     console.error("Failed to update bot status:", err.message);
   }
 }
-
-export async function getBotStatusFromDB() {
+ 
+async function getBotStatusFromDB() {
   try {
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status"); // WebUrl here
     return res.data;
@@ -100,7 +100,7 @@ async function signalChanged(newSignal) {
   }
 }
 
-export async function checkSignal() {
+async function checkSignal() {
 
   const now = new Date();
   const pkHour = (now.getUTCHours() + 5) % 24;
@@ -449,4 +449,6 @@ module.exports = {
   startBot: waitForNext3MinCandle,
   stopBot: stopLoop,
   isBotActive,
+  getBotStatusFromDB,
+  checkSignal
 };
