@@ -450,5 +450,5 @@ module.exports = {
   stopBot: stopLoop,
   isBotActive,
   getBotStatusFromDB,
-  checkSignal
+  startLoop
 };
