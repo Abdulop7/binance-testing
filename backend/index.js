@@ -15,8 +15,14 @@ const { getBotStatusFromDB, checkSignal } = require('./botrunner.js');
 
 app.use("/bot", BotRouter)
 
-    // On server startup
-    (async () => {
+
+mongoose.connect(process.env.DbUrl).then(() => {
+    console.log("Database Connected to :", process.env.DbUrl);
+
+    app.listen(port, async() => {
+        console.log("Server is Running on:", port);
+            
+        // On server startup
         const { isActive } = await getBotStatusFromDB();
         if (isActive) {
             console.log("🚀 Bot was previously active. Restarting loop...");
@@ -24,15 +30,6 @@ app.use("/bot", BotRouter)
         } else {
             console.log("🟡 Bot is inactive. Not restarting.");
         }
-
-    })();
-
-
-mongoose.connect(process.env.DbUrl).then(() => {
-    console.log("Database Connected to :", process.env.DbUrl);
-
-    app.listen(port, () => {
-        console.log("Server is Running on:", port);
 
     })
 })
