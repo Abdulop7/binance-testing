@@ -20,7 +20,7 @@ async function updateBotStatus(active, signal, inTrade) {
   }
 }
 
-async function getBotStatusFromDB() {
+export async function getBotStatusFromDB() {
   try {
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status"); // WebUrl here
     return res.data;
@@ -100,7 +100,7 @@ async function signalChanged(newSignal) {
   }
 }
 
-async function checkSignal() {
+export async function checkSignal() {
 
   const now = new Date();
   const pkHour = (now.getUTCHours() + 5) % 24;

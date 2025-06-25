@@ -11,15 +11,28 @@ const port = process.env.PORT || 10000; // ✅ right
 
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
+const { getBotStatusFromDB, checkSignal } = require('./botrunner.js');
 
-app.use("/bot",BotRouter)
+app.use("/bot", BotRouter)
+
+    // On server startup
+    (async () => {
+        const { isActive } = await getBotStatusFromDB();
+        if (isActive) {
+            console.log("🚀 Bot was previously active. Restarting loop...");
+            checkSignal(); // Auto-start logic
+        } else {
+            console.log("🟡 Bot is inactive. Not restarting.");
+        }
+
+    })();
 
 
-mongoose.connect(process.env.DbUrl).then(()=>{
-    console.log("Database Connected to :",process.env.DbUrl);
-    
+mongoose.connect(process.env.DbUrl).then(() => {
+    console.log("Database Connected to :", process.env.DbUrl);
+
     app.listen(port, () => {
         console.log("Server is Running on:", port);
-    
+
     })
 })
