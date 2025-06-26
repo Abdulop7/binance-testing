@@ -222,11 +222,18 @@ async function checkTPorSL(lastSignal) {
 
       // Set TP and check SL
       const tp = type === "BUY" ? entryPrice * 1.005 : entryPrice * 0.995;
+      const softSL = type === "BUY"
+      ? entryPrice * 0.992  // ~0.8% below for BUY
+      : entryPrice * 1.008; // ~0.8% above for SELL
+
       const slBroken = await isSLBroken(type);
 
       const hitTP = (type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp);
+      const earlyExit = type === "BUY"
+      ? currentPrice <= softSL && slBroken
+      : currentPrice >= softSL && slBroken;
 
-      if (hitTP || slBroken) {
+      if (hitTP || earlyExit) {
         
         // Calculate profit %
         const profitPercent =
