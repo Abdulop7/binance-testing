@@ -24,13 +24,15 @@ mongoose.connect(process.env.DbUrl).then(() => {
 
         // On server startup
         const { isActive, inTrade } = await getBotStatusFromDB();
+        console.log(`Bot isActive:${isActive}`);
+        
 
         if (isActive) {
             console.log("Bot Activating...");
             
             const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl Here
             const newSignal = res.data.msg.signal;
-            console.log("✅ Last Signal Registered");
+            console.log("✅ Last Signal Registered, ",newSignal);
 
 
             await updateBotStatus(true, newSignal, inTrade);
