@@ -7,6 +7,10 @@ let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
 
+function updLastSignal(newSignal){
+  lastSignal= newSignal;
+}
+
 
 async function updateBotStatus(active, signal, inTrade) {
   try {
@@ -459,5 +463,6 @@ module.exports = {
   isBotActive,
   getBotStatusFromDB,
   startLoop,
-  updateBotStatus
+  updateBotStatus,
+  updLastSignal
 };

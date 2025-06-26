@@ -11,7 +11,7 @@ const port = process.env.PORT || 10000; // ✅ right
 
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
-const { getBotStatusFromDB, updateBotStatus, startLoop } = require('./botrunner.js');
+const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal } = require('./botrunner.js');
 
 app.use("/bot", BotRouter)
 
@@ -33,6 +33,7 @@ mongoose.connect(process.env.DbUrl).then(() => {
             const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl Here
             const newSignal = res.data.msg.signal;
             console.log("✅ Last Signal Registered, ",newSignal);
+            updLastSignal(newSignal);
 
 
             await updateBotStatus(true, newSignal, inTrade);
