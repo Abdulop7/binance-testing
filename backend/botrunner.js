@@ -96,6 +96,7 @@ async function signalChanged(newSignal) {
     await placeOrder(newSignal);
   } else if (inTrade) {
     console.log(`Signal is ${newSignal}. But it is Already in Trade`);
+    await updateBotStatus(true, newSignal, inTrade);
 
   }
 }
