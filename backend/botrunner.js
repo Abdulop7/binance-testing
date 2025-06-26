@@ -458,5 +458,6 @@ module.exports = {
   stopBot: stopLoop,
   isBotActive,
   getBotStatusFromDB,
-  startLoop
+  startLoop,
+  updateBotStatus
 };
