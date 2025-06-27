@@ -18,28 +18,28 @@ let activeTrade = null;
 
 async function getAtr(req, res) {
 
-    const {data} = await axios.get("https://binance-backend-6n65.onrender.com/bot/fetch"); // fetch open, high, low, close
-    const {ohlcv} = data;
+    const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/fetch"); // fetch open, high, low, close
+    const { ohlcv } = data;
 
     if (!Array.isArray(ohlcv) || ohlcv.length < 14) {
-      return res.status(400).json({ status: 0, msg: "Not enough data for ATR calculation" });
+        return res.status(400).json({ status: 0, msg: "Not enough data for ATR calculation" });
     }
-    else{
+    else {
 
-    const highs = ohlcv.map(c => c.high);
-    const lows = ohlcv.map(c => c.low);
-    const closes = ohlcv.map(c => c.closes);
+        const highs = ohlcv.map(c => c.high);
+        const lows = ohlcv.map(c => c.low);
+        const closes = ohlcv.map(c => c.closes);
 
-    const atr = ATR.calculate({
-        period: 14, // or your desired length
-        high: highs,
-        low: lows,
-        close: closes
-    });
+        const atr = ATR.calculate({
+            period: 14, // or your desired length
+            high: highs,
+            low: lows,
+            close: closes
+        });
 
-    const latestATR = atr[atr.length - 1];
-    res.json({ atr: Number(latestATR.toFixed(4)) });
-}
+        const latestATR = atr[atr.length - 1];
+        res.json({ atr: Number(latestATR.toFixed(4)) });
+    }
 }
 
 async function ViewPrice(req, res) {
@@ -436,61 +436,69 @@ async function AllTrades(req, res) {
 
 async function TradeNumber(req, res) {
 
-     const latestTrade = await TradeHistory.findOne().sort({ tradeNumber: -1 });
-  const tradeNumber = latestTrade ? latestTrade.tradeNumber : 0;
-  res.json({ tradeNumber });
+    const latestTrade = await TradeHistory.findOne().sort({ tradeNumber: -1 });
+    const tradeNumber = latestTrade ? latestTrade.tradeNumber : 0;
+    res.json({ tradeNumber });
 }
 
 async function fetchForexFactoryNews() {
-  try {
-    const { data: html } = await axios.get("https://www.forexfactory.com/calendar", {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
+    try {
+        const { data: html } = await axios.get("https://www.forexfactory.com/calendar", {
+            headers: {
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+                "Accept":
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Referer": "https://www.google.com/",
+            },
+        });
 
-    const $ = cheerio.load(html);
-    const newsList = [];
 
-    $("#calendar__table tbody tr").each((i, row) => {
-      const timeText = $(row).find(".calendar__time").text().trim();
-      const currency = $(row).find(".calendar__currency").text().trim();
-      const impact = $(row).find(".impact .icon").attr("title")?.trim();
-      const event = $(row).find(".calendar__event").text().trim();
+        const $ = cheerio.load(html);
+        const newsList = [];
 
-      if (timeText && currency && impact && event) {
-        newsList.push({ timeText, currency, impact, event });
-      }
-    });
+        $("#calendar__table tbody tr").each((i, row) => {
+            const timeText = $(row).find(".calendar__time").text().trim();
+            const currency = $(row).find(".calendar__currency").text().trim();
+            const impact = $(row).find(".impact .icon").attr("title")?.trim();
+            const event = $(row).find(".calendar__event").text().trim();
 
-    return newsList;
-  } catch (error) {
-    console.error("❌ Error scraping ForexFactory:", error.message);
-    return [];
-  }
+            if (timeText && currency && impact && event) {
+                newsList.push({ timeText, currency, impact, event });
+            }
+        });
+
+        return newsList;
+    } catch (error) {
+        console.error("❌ Error scraping ForexFactory:", error.message);
+        return [];
+    }
 }
 
 /** Convert Forex Factory ET time to Pakistan local time */
 function convertToPakistanTime(timeText) {
-  const today = new Date();
-  const fullTimeStr = `${format(today, "yyyy-MM-dd")} ${timeText}`;
-  const parsedET = parse(fullTimeStr, "yyyy-MM-dd h:mmaaa", new Date());
-  const utcTime = zonedTimeToUtc(parsedET, "America/New_York");
-  return utcToZonedTime(utcTime, "Asia/Karachi");
+    const today = new Date();
+    const fullTimeStr = `${format(today, "yyyy-MM-dd")} ${timeText}`;
+    const parsedET = parse(fullTimeStr, "yyyy-MM-dd h:mmaaa", new Date());
+    const utcTime = zonedTimeToUtc(parsedET, "America/New_York");
+    return utcToZonedTime(utcTime, "Asia/Karachi");
 }
 
 /** Filter out only High/Medium impact news and convert time */
-async function getFilteredNews(req,res) {
+async function getFilteredNews(req, res) {
 
-  const allNews = await fetchForexFactoryNews();
+    const allNews = await fetchForexFactoryNews();
 
-//   const keywords = ["FOMC", "Non-Farm", "CPI", "Fed Chair", "Fed Speaks", "Fed Speech", "Federal Reserve"];
+    //   const keywords = ["FOMC", "Non-Farm", "CPI", "Fed Chair", "Fed Speaks", "Fed Speech", "Federal Reserve"];
 
-  let FilteredNews= allNews
-    .filter(n => ["High", "Medium"].includes(n.impact))
-    .map(n => ({
-      ...n,
-      pkTime: convertToPakistanTime(n.timeText),
-    }));
+    let FilteredNews = allNews
+        .filter(n => ["High", "Medium"].includes(n.impact))
+        .map(n => ({
+            ...n,
+            pkTime: convertToPakistanTime(n.timeText),
+        }));
     res.json(FilteredNews)
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades,getAtr,TradeNumber,getFilteredNews }
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, getFilteredNews }
