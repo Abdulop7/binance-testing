@@ -1,6 +1,6 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
-const puppeteer = require("puppeteer");
+const cloudscraper = require('cloudscraper');
 const { parse, format } = require("date-fns");
 const { zonedTimeToUtc, utcToZonedTime } = require("date-fns-tz");
 const { EMA } = require("technicalindicators");
@@ -444,22 +444,7 @@ async function TradeNumber(req, res) {
 
 async function fetchForexFactoryNews() {
     try {
-        const browser = await puppeteer.launch({
-            headless: "new", // use `false` if you want to see the browser for testing
-            args: ["--no-sandbox", "--disable-setuid-sandbox"],
-        });
-
-        const page = await browser.newPage();
-        await page.goto("https://www.forexfactory.com/calendar", {
-            waitUntil: "networkidle2",
-        });
-
-        // Wait for the table to load
-        await page.waitForSelector("#calendar__table");
-
-        const html = await page.content();
-        await browser.close();
-
+        const html = await cloudscraper.get("https://www.forexfactory.com/calendar");
 
         const $ = cheerio.load(html);
         const newsList = [];
