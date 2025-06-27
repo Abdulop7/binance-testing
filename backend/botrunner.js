@@ -7,8 +7,8 @@ let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
 
-function updLastSignal(newSignal){
-  lastSignal= newSignal;
+function updLastSignal(newSignal) {
+  lastSignal = newSignal;
 }
 
 
@@ -23,7 +23,7 @@ async function updateBotStatus(active, signal, inTrade) {
     console.error("Failed to update bot status:", err.message);
   }
 }
- 
+
 async function getBotStatusFromDB() {
   try {
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status"); // WebUrl here
@@ -38,45 +38,45 @@ async function placeOrder(signal) {
   const leverage = 10;
   const capital = 100; // use your capital here
   const positionSizeUSD = capital * leverage;
-  const {data} = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
-  const {atr} = data;
+  const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
+  const { atr } = data;
 
   console.log(`Atr is ${atr}`);
-  
 
-  if(atr < 0.006){
+
+  if (atr < 0.006) {
     console.log(`⛔ ATR too low at ${atr} — skipping trade.`);
   }
-  else{
+  else {
 
-  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
-  const entryPrice = res.data;
+    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
+    const entryPrice = res.data;
 
-  const pairQuantity = (positionSizeUSD / entryPrice).toFixed(4); // ✅ More precise for low-price tokens
+    const pairQuantity = (positionSizeUSD / entryPrice).toFixed(4); // ✅ More precise for low-price tokens
 
-  //  await placeFuturesOrderWithDollarAmount(signal, dollarAmount);
+    //  await placeFuturesOrderWithDollarAmount(signal, dollarAmount);
 
-  // ⏰ Pakistan time manually (UTC + 5)
-  const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
+    // ⏰ Pakistan time manually (UTC + 5)
+    const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
 
-  // ⏰ Get 3m candle timestamp
-  const now = Date.now();
-  const candleTimestamp = now - (now % (3 * 60 * 1000)); // <-- 🆕 This is the key
+    // ⏰ Get 3m candle timestamp
+    const now = Date.now();
+    const candleTimestamp = now - (now % (3 * 60 * 1000)); // <-- 🆕 This is the key
 
-  console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
+    console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
 
 
-  await axios.post("https://binance-backend-6n65.onrender.com/bot/save-trade", { // WebUrl Here
-    signal: signal,
-    time: pakTime.toISOString(), // Saved in ISO format but in PKT
-    price: entryPrice,
-    positionSize: pairQuantity,
-    positionSizeUSD: positionSizeUSD,
-    leverage: leverage,
-    candleTimestamp // 🆕 New field
-  });
+    await axios.post("https://binance-backend-6n65.onrender.com/bot/save-trade", { // WebUrl Here
+      signal: signal,
+      time: pakTime.toISOString(), // Saved in ISO format but in PKT
+      price: entryPrice,
+      positionSize: pairQuantity,
+      positionSizeUSD: positionSizeUSD,
+      leverage: leverage,
+      candleTimestamp // 🆕 New field
+    });
 
-  await updateBotStatus(true, signal, true); // now inTrade is true
+    await updateBotStatus(true, signal, true); // now inTrade is true
   }
 }
 
@@ -113,7 +113,7 @@ async function checkSignal() {
   if (pkHour >= 7 && pkHour < 13) {
     console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
     checkTPorSL(null)
-  } 
+  }
   else {
 
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
@@ -197,7 +197,7 @@ async function waitForNext3MinCandle() {
       startLoop(); // should log "✅ startLoop triggered"
     } catch (err) {
       console.error("❌ Failed to start bot inside timeout:", err.message);
-    } 
+    }
   }, delay);
 }
 
@@ -214,7 +214,7 @@ async function checkTPorSL(lastSignal) {
 
     console.log("Active Trade Found ✅");
 
-    if (parseInt(candleTimestamp) === currentCandleTimestamp) {  
+    if (parseInt(candleTimestamp) === currentCandleTimestamp) {
 
       console.log("📛 Trade is still in entry candle — skipping SL/TP check");
 
@@ -228,18 +228,23 @@ async function checkTPorSL(lastSignal) {
       // Set TP and check SL
       const tp = type === "BUY" ? entryPrice * 1.005 : entryPrice * 0.995;
       const softSL = type === "BUY"
-      ? entryPrice * 0.992  // ~0.8% below for BUY
-      : entryPrice * 1.008; // ~0.8% above for SELL
+        ? entryPrice * 0.992  // ~0.8% below for BUY
+        : entryPrice * 1.008; // ~0.8% above for SELL
 
       const slBroken = await isSLBroken(type);
 
       const hitTP = (type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp);
       const earlyExit = type === "BUY"
-      ? currentPrice <= softSL && slBroken
-      : currentPrice >= softSL && slBroken;
+        ? currentPrice <= softSL && slBroken
+        : currentPrice >= softSL && slBroken;
 
-      if (hitTP || earlyExit) {
-        
+      // Optional hard SL (exact 0.8% move)
+      const hardSL = type === "BUY"
+        ? currentPrice <= softSL
+        : currentPrice >= softSL;
+
+      if (hitTP || earlyExit || hardSL) {
+
         // Calculate profit %
         const profitPercent =
           type === "BUY"
