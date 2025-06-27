@@ -1,4 +1,7 @@
 const axios = require("axios");
+const cheerio = require("cheerio");
+const { parse, format } = require("date-fns");
+const { zonedTimeToUtc, utcToZonedTime } = require("date-fns-tz");
 const { EMA } = require("technicalindicators");
 const Binance = require("node-binance-api");
 const { model } = require("mongoose");
@@ -438,4 +441,56 @@ async function TradeNumber(req, res) {
   res.json({ tradeNumber });
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades,getAtr,TradeNumber }
+async function fetchForexFactoryNews() {
+  try {
+    const { data: html } = await axios.get("https://www.forexfactory.com/calendar", {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+
+    const $ = cheerio.load(html);
+    const newsList = [];
+
+    $("#calendar__table tbody tr").each((i, row) => {
+      const timeText = $(row).find(".calendar__time").text().trim();
+      const currency = $(row).find(".calendar__currency").text().trim();
+      const impact = $(row).find(".impact .icon").attr("title")?.trim();
+      const event = $(row).find(".calendar__event").text().trim();
+
+      if (timeText && currency && impact && event) {
+        newsList.push({ timeText, currency, impact, event });
+      }
+    });
+
+    return newsList;
+  } catch (error) {
+    console.error("❌ Error scraping ForexFactory:", error.message);
+    return [];
+  }
+}
+
+/** Convert Forex Factory ET time to Pakistan local time */
+function convertToPakistanTime(timeText) {
+  const today = new Date();
+  const fullTimeStr = `${format(today, "yyyy-MM-dd")} ${timeText}`;
+  const parsedET = parse(fullTimeStr, "yyyy-MM-dd h:mmaaa", new Date());
+  const utcTime = zonedTimeToUtc(parsedET, "America/New_York");
+  return utcToZonedTime(utcTime, "Asia/Karachi");
+}
+
+/** Filter out only High/Medium impact news and convert time */
+async function getFilteredNews(req,res) {
+
+  const allNews = await fetchForexFactoryNews();
+
+//   const keywords = ["FOMC", "Non-Farm", "CPI", "Fed Chair", "Fed Speaks", "Fed Speech", "Federal Reserve"];
+
+  let FilteredNews= allNews
+    .filter(n => ["High", "Medium"].includes(n.impact))
+    .map(n => ({
+      ...n,
+      pkTime: convertToPakistanTime(n.timeText),
+    }));
+    res.json(FilteredNews)
+}
+
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades,getAtr,TradeNumber,getFilteredNews }
