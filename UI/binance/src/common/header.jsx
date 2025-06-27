@@ -15,6 +15,7 @@ export default function Header() {
         <h1><Link to={"/bots"}>Bots</Link> </h1>
         <h1><Link to={"/backtest"}>Backtest</Link> </h1>
         <h1><Link to={"/logs"}>Logs</Link></h1>
+        <h1><Link to={"/news"}>News</Link></h1>
     </div>
   )
 }

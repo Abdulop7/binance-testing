@@ -11,6 +11,7 @@ import Backtest from './backtest.jsx'
 import Terminal from './Terminal.jsx'
 import { ToastContainer, toast } from 'react-toastify';
 import { BotControllerProvider } from './botState.jsx'
+import News from './news.jsx'
 
 
 let allRoutes = createBrowserRouter([
@@ -37,6 +38,10 @@ let allRoutes = createBrowserRouter([
   {
     path: "/terminal",
     element: <Terminal />
+  },
+  {
+    path: "/news",
+    element: <News />
   },
 ])
 

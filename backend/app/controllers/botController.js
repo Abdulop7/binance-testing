@@ -1,8 +1,4 @@
 const axios = require("axios");
-const cheerio = require("cheerio");
-const cloudscraper = require('cloudscraper');
-const { parse, format } = require("date-fns");
-const { zonedTimeToUtc, utcToZonedTime } = require("date-fns-tz");
 const { EMA } = require("technicalindicators");
 const Binance = require("node-binance-api");
 const { model } = require("mongoose");
@@ -10,6 +6,8 @@ const botrunner = require("../../botrunner");
 const BotStatus = require('../models/botStatus')
 const TradeHistory = require("../models/tradeHistory");
 const { ATR } = require('technicalindicators');
+const newsEvent = require("../models/newsEvent");
+const trade = require("../models/trade");
 const binance = new Binance().options({
     APIKEY: process.env.apiKey,
     APISECRET: process.env.secretKey
@@ -389,22 +387,54 @@ async function SaveTrade(req, res) {
         leverage: leverage,
         candleTimestamp
     };
-    res.json({ message: "Trade saved successfully", activeTrade });
-    console.log({ message: "Trade saved successfully ✅", activeTrade });
+    try {
+        const newTrade = new trade(activeTrade);
+        await newTrade.save();
+
+        res.json({ message: "Trade saved successfully", activeTrade });
+        console.log({ message: "Trade saved successfully ✅", activeTrade });
+    } catch (err) {
+        console.error("Error saving trade:", err);
+        res.status(500).json({ message: "Failed to save trade", error: err.message });
+    }
 
 }
 
+
 async function GetActiveTrades(req, res) {
 
-    if (!activeTrade) return res.status(404).json({ message: "No active trade" });
-    res.json(activeTrade);
+    try {
+        // Find the most recent trade (based on entryTime or _id)
+        const latestTrade = await Trade.findOne().sort({ entryTime: -1 }); // or sort({ _id: -1 })
+
+        if (!latestTrade) {
+            return res.status(404).json({ message: "No active trade found" });
+        }
+
+        res.json(latestTrade);
+    } catch (error) {
+        console.error("Error fetching active trade:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
 }
 
 
 async function ClearTrade(req, res) {
 
-    activeTrade = null;
-    res.json({ message: "Active trade cleared" });
+    try {
+        // Find and delete the most recent trade (assuming latest is the active one)
+        const deletedTrade = await Trade.findOneAndDelete({}, { sort: { entryTime: -1 } }); // or sort: { _id: -1 }
+
+        if (!deletedTrade) {
+            return res.status(404).json({ message: "No active trade found to delete" });
+        }
+
+        res.json({ message: "Active trade cleared from database", deletedTrade });
+        console.log("✅ Active trade cleared:", deletedTrade);
+    } catch (error) {
+        console.error("❌ Error clearing trade:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
 
 }
 
@@ -440,56 +470,44 @@ async function TradeNumber(req, res) {
     const latestTrade = await TradeHistory.findOne().sort({ tradeNumber: -1 });
     const tradeNumber = latestTrade ? latestTrade.tradeNumber : 0;
     res.json({ tradeNumber });
+
+
 }
 
-async function fetchForexFactoryNews() {
-    try {
-        const html = await cloudscraper.get("https://www.forexfactory.com/calendar");
+async function checkNewsBlock(req, res) {
+  const now = new Date();
+  const event = await newsEvent.findOne({
+    stopTime: { $lte: now },
+    resumeTime: { $gte: now }
+  });
 
-        const $ = cheerio.load(html);
-        const newsList = [];
-
-        $("#calendar__table tbody tr").each((i, row) => {
-            const timeText = $(row).find(".calendar__time").text().trim();
-            const currency = $(row).find(".calendar__currency").text().trim();
-            const impact = $(row).find(".impact .icon").attr("title")?.trim();
-            const event = $(row).find(".calendar__event").text().trim();
-
-            if (timeText && currency && impact && event) {
-                newsList.push({ timeText, currency, impact, event });
-            }
-        });
-
-        return newsList;
-    } catch (error) {
-        console.error("❌ Error scraping ForexFactory:", error.message);
-        return [];
-    }
+  if (event) {
+    return res.json({ blocked: true, reason: event.type, resumeAt: event.resumeTime });
+  } else {
+    return res.json({ blocked: false });
+  }
 }
 
-/** Convert Forex Factory ET time to Pakistan local time */
-function convertToPakistanTime(timeText) {
-    const today = new Date();
-    const fullTimeStr = `${format(today, "yyyy-MM-dd")} ${timeText}`;
-    const parsedET = parse(fullTimeStr, "yyyy-MM-dd h:mmaaa", new Date());
-    const utcTime = zonedTimeToUtc(parsedET, "America/New_York");
-    return utcToZonedTime(utcTime, "Asia/Karachi");
+
+async function addNewsEvent(req, res) {
+  const { type, date } = req.body;
+  const newsDate = new Date(date); // news time e.g., 2025-06-27T14:30:00Z
+
+  let stopTime, resumeTime;
+  if (type === "NFP" || type === "CPI") {
+    stopTime = new Date(newsDate.getTime() - 2.5 * 60 * 60 * 1000); // 06:00
+    resumeTime = new Date(newsDate.getTime() + 2.5 * 60 * 60 * 1000); // 11:00
+  } else if (type === "FOMC") {
+    stopTime = new Date(newsDate.getTime() - 1.5 * 60 * 60 * 1000); // 13:00
+    resumeTime = new Date(newsDate.getTime() + 1.5 * 60 * 60 * 1000); // 16:00
+  } else if (type === "FED_SPEAK") {
+    stopTime = new Date(newsDate.getTime() - 1 * 60 * 60 * 1000); // 09:00
+    resumeTime = new Date(newsDate.getTime() + 2 * 60 * 60 * 1000); // 12:00
+  }
+
+  const newEvent = new NewsEvent({ type, date: newsDate, stopTime, resumeTime });
+  await newEvent.save();
+  res.json({ msg: "News event added", newEvent });
 }
 
-/** Filter out only High/Medium impact news and convert time */
-async function getFilteredNews(req, res) {
-
-    const allNews = await fetchForexFactoryNews();
-
-    //   const keywords = ["FOMC", "Non-Farm", "CPI", "Fed Chair", "Fed Speaks", "Fed Speech", "Federal Reserve"];
-
-    let FilteredNews = allNews
-        .filter(n => ["High", "Medium"].includes(n.impact))
-        .map(n => ({
-            ...n,
-            pkTime: convertToPakistanTime(n.timeText),
-        }));
-    res.json(FilteredNews)
-}
-
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, getFilteredNews }
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber,addNewsEvent,checkNewsBlock }
