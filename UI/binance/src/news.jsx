@@ -15,64 +15,70 @@ export default function News() {
     const [newsList, setNewsList] = useState([]);
 
     async function submitNews(evt) {
-    evt.preventDefault();
+        evt.preventDefault();
 
-    if (!newsTime || !newsDay || !newsType) {
-        alert("Please complete all fields.");
-        return;
+        if (!newsTime || !newsDay || !newsType) {
+            alert("Please complete all fields.");
+            return;
+        }
+
+        const dayMap = {
+            Sunday: 0,
+            Monday: 1,
+            Tuesday: 2,
+            Wednesday: 3,
+            Thursday: 4,
+            Friday: 5,
+            Saturday: 6
+        };
+        const targetDay = dayMap[newsDay];
+        const [hour, minute] = newsTime.split(':').map(Number);
+
+        // Get current NY time
+        const nowNY = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+
+        let nyDate = new Date(nowNY); // Clone for manipulation
+        nyDate.setSeconds(0);
+        nyDate.setMilliseconds(0);
+
+        if (nowNY.getDay() === targetDay) {
+            nyDate.setHours(hour);
+            nyDate.setMinutes(minute);
+
+            if (nyDate <= nowNY) {
+                // If selected time already passed today, go to next week
+                nyDate = new Date(nowNY);
+                nyDate.setDate(nyDate.getDate() + 7);
+                nyDate.setDate(nyDate.getDate() + ((targetDay + 7 - nyDate.getDay()) % 7));
+                nyDate.setHours(hour);
+                nyDate.setMinutes(minute);
+            }
+        } else {
+            // Move to next occurrence of that day
+            const daysAhead = (targetDay + 7 - nowNY.getDay()) % 7 || 7;
+            nyDate.setDate(nyDate.getDate() + daysAhead);
+            nyDate.setHours(hour);
+            nyDate.setMinutes(minute);
+        }
+
+        // Now nyDate is in NY local time; convert to PKT
+        const utc = new Date(nyDate.toLocaleString("en-US", { timeZone: "America/New_York" }));
+        const pkt = new Date(utc.toLocaleString("en-US", { timeZone: "Asia/Karachi" }));
+        const pktTimeISO = pkt.toISOString();
+
+        console.log({ type: newsType, pktTimeISO });
+
+        await axios.post('https://binance-backend-6n65.onrender.com/bot/add-news', {
+            type: newsType,
+            date: pktTimeISO
+        });
+
+        toast.success("News Stored");
+        setNewsTime("");
+        setNewsType("");
+        setNewsDay("");
     }
 
-    // Convert day string to number (0 = Sunday, 1 = Monday, ...)
-    const dayMap = {
-        Sunday: 0,
-        Monday: 1,
-        Tuesday: 2,
-        Wednesday: 3,
-        Thursday: 4,
-        Friday: 5,
-        Saturday: 6
-    };
-    const targetDay = dayMap[newsDay];
-
-    const [hour, minute] = newsTime.split(':').map(Number);
-    const baseDate = new Date();
-    let nyDate;
-
-    // Create a target time for today
-    let todayTarget = setSeconds(setMinutes(setHours(baseDate, hour), minute), 0);
-
-    // If today is the selected day and time is still ahead
-    if (baseDate.getDay() === targetDay && isAfter(todayTarget, baseDate)) {
-        nyDate = todayTarget;
-    } else {
-        nyDate = nextDay(baseDate, targetDay);
-        nyDate = setHours(nyDate, hour);
-        nyDate = setMinutes(nyDate, minute);
-        nyDate = setSeconds(nyDate, 0);
-    }
-
-    // Convert NY time (UTC-4) to PKT (UTC+5)
-    const nyTimeMs = nyDate.getTime();
-    const offsetMs = 9 * 60 * 60 * 1000; // 9 hours difference
-    const pktDate = new Date(nyTimeMs + offsetMs);
-    const pktTimeISO = pktDate.toISOString();
-
-    console.log({
-        type: newsType,
-        pktTimeISO
-    });
-
-    await axios.post('https://binance-backend-6n65.onrender.com/bot/add-news', {
-        type: newsType,
-        date: pktTimeISO
-    });
-
-    toast.success("News Stored");
-
-    setNewsTime("");
-    setNewsType("");
-    setNewsDay("");
-}
 
 
     useEffect(() => {
