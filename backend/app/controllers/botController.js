@@ -6,7 +6,7 @@ const botrunner = require("../../botrunner");
 const BotStatus = require('../models/botStatus')
 const TradeHistory = require("../models/tradeHistory");
 const { ATR } = require('technicalindicators');
-const newsEvent = require("../models/newsEvent");
+const NewsEvent = require("../models/newsEvent");
 const Trade = require("../models/trade");
 const binance = new Binance().options({
     APIKEY: process.env.apiKey,
@@ -476,7 +476,7 @@ async function TradeNumber(req, res) {
 
 async function checkNewsBlock(req, res) {
   const now = new Date();
-  const event = await newsEvent.findOne({
+  const event = await NewsEvent.findOne({
     stopTime: { $lte: now },
     resumeTime: { $gte: now }
   });
