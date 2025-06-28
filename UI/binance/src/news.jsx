@@ -4,6 +4,7 @@ import axios from 'axios'
 
 import { nextDay, setHours, setMinutes, setSeconds } from "date-fns";
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -55,10 +56,12 @@ export default function News() {
             pktTimeISO
         });
 
-        // await axios.post('https://binance-backend-6n65.onrender.com/bot/set-news', {
-        //     type: newsType,
-        //     newsTime: pktTimeISO
-        // });
+        await axios.post('https://binance-backend-6n65.onrender.com/bot/set-news', {
+            type: newsType,
+            newsTime: pktTimeISO
+        });
+
+        toast.success("News Stored")
 
         setNewsTime("");
         setNewsType("");
