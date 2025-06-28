@@ -39,7 +39,7 @@ BotRouter.get("/last-trade", TradeNumber)
 
 BotRouter.post("/add-news", addNewsEvent)
 
-BotRouter.get("/add-news", checkNewsBlock)
+BotRouter.get("/get-news", checkNewsBlock)
 
 
 module.exports = BotRouter;

@@ -56,7 +56,7 @@ export default function News() {
             pktTimeISO
         });
 
-        await axios.post('https://binance-backend-6n65.onrender.com/bot/set-news', {
+        await axios.post('https://binance-backend-6n65.onrender.com/bot/add-news', {
             type: newsType,
             newsTime: pktTimeISO
         });
