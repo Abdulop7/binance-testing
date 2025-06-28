@@ -7,7 +7,7 @@ const BotStatus = require('../models/botStatus')
 const TradeHistory = require("../models/tradeHistory");
 const { ATR } = require('technicalindicators');
 const newsEvent = require("../models/newsEvent");
-const trade = require("../models/trade");
+const Trade = require("../models/Trade");
 const binance = new Binance().options({
     APIKEY: process.env.apiKey,
     APISECRET: process.env.secretKey
@@ -388,7 +388,7 @@ async function SaveTrade(req, res) {
         candleTimestamp
     };
     try {
-        const newTrade = new trade(activeTrade);
+        const newTrade = new Trade(activeTrade);
         await newTrade.save();
 
         res.json({ message: "Trade saved successfully", activeTrade });
