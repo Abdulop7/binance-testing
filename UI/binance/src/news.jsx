@@ -22,6 +22,7 @@ export default function News() {
             return;
         }
 
+        // Map day string to number
         const dayMap = {
             Sunday: 0,
             Monday: 1,
@@ -31,42 +32,39 @@ export default function News() {
             Friday: 5,
             Saturday: 6
         };
+
         const targetDay = dayMap[newsDay];
         const [hour, minute] = newsTime.split(':').map(Number);
+        const now = new Date();
+        const todayDay = now.getDay();
 
-        // Get current NY time
-        const nowNY = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+        let nyDate;
 
-        let nyDate = new Date(nowNY); // Clone for manipulation
-        nyDate.setSeconds(0);
-        nyDate.setMilliseconds(0);
-
-        if (nowNY.getDay() === targetDay) {
-            nyDate.setHours(hour);
-            nyDate.setMinutes(minute);
-
-            if (nyDate <= nowNY) {
-                // If selected time already passed today, go to next week
-                nyDate = new Date(nowNY);
-                nyDate.setDate(nyDate.getDate() + 7);
-                nyDate.setDate(nyDate.getDate() + ((targetDay + 7 - nyDate.getDay()) % 7));
-                nyDate.setHours(hour);
-                nyDate.setMinutes(minute);
+        if (todayDay === targetDay) {
+            // Check if time is still ahead today
+            const todayWithTargetTime = setSeconds(setMinutes(setHours(new Date(), hour), minute), 0);
+            if (isAfter(todayWithTargetTime, now)) {
+                nyDate = todayWithTargetTime;
+            } else {
+                // Time has passed, go to next week
+                nyDate = nextDay(now, targetDay);
+                nyDate = setSeconds(setMinutes(setHours(nyDate, hour), minute), 0);
             }
         } else {
-            // Move to next occurrence of that day
-            const daysAhead = (targetDay + 7 - nowNY.getDay()) % 7 || 7;
-            nyDate.setDate(nyDate.getDate() + daysAhead);
-            nyDate.setHours(hour);
-            nyDate.setMinutes(minute);
+            // Next occurrence of selected day
+            nyDate = nextDay(now, targetDay);
+            nyDate = setSeconds(setMinutes(setHours(nyDate, hour), minute), 0);
         }
 
-        // Now nyDate is in NY local time; convert to PKT
-        const utc = new Date(nyDate.toLocaleString("en-US", { timeZone: "America/New_York" }));
-        const pkt = new Date(utc.toLocaleString("en-US", { timeZone: "Asia/Karachi" }));
-        const pktTimeISO = pkt.toISOString();
+        // Convert NY to PKT (add 9 hours)
+        const nyTimeMs = nyDate.getTime();
+        const pktDate = new Date(nyTimeMs + 9 * 60 * 60 * 1000);
+        const pktTimeISO = pktDate.toISOString();
 
-        console.log({ type: newsType, pktTimeISO });
+        console.log({
+            type: newsType,
+            pktTimeISO
+        });
 
         await axios.post('https://binance-backend-6n65.onrender.com/bot/add-news', {
             type: newsType,
@@ -74,10 +72,12 @@ export default function News() {
         });
 
         toast.success("News Stored");
+
         setNewsTime("");
         setNewsType("");
         setNewsDay("");
     }
+
 
 
 
