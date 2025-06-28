@@ -22,7 +22,6 @@ export default function News() {
             return;
         }
 
-        // Map day string to number
         const dayMap = {
             Sunday: 0,
             Monday: 1,
@@ -36,47 +35,55 @@ export default function News() {
         const targetDay = dayMap[newsDay];
         const [hour, minute] = newsTime.split(':').map(Number);
         const now = new Date();
-        const todayDay = now.getDay();
+
+        // Convert current time to NY time
+        const nowInNY = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
 
         let nyDate;
 
-        if (todayDay === targetDay) {
-            // Check if time is still ahead today
-            const todayWithTargetTime = setSeconds(setMinutes(setHours(new Date(), hour), minute), 0);
-            if (isAfter(todayWithTargetTime, now)) {
-                nyDate = todayWithTargetTime;
+        if (nowInNY.getDay() === targetDay) {
+            const enteredDate = new Date(nowInNY);
+            enteredDate.setHours(hour, minute, 0, 0);
+
+            if (enteredDate.getTime() >= nowInNY.getTime()) {
+                nyDate = enteredDate; // ✅ valid time today
             } else {
-                // Time has passed, go to next week
-                nyDate = nextDay(now, targetDay);
-                nyDate = setSeconds(setMinutes(setHours(nyDate, hour), minute), 0);
+                // ❌ time passed, shift to next week
+                nyDate = new Date(enteredDate);
+                nyDate.setDate(nyDate.getDate() + 7);
             }
         } else {
-            // Next occurrence of selected day
-            nyDate = nextDay(now, targetDay);
-            nyDate = setSeconds(setMinutes(setHours(nyDate, hour), minute), 0);
+            // Shift to next occurrence of that day
+            const dayDiff = (targetDay + 7 - nowInNY.getDay()) % 7;
+            nyDate = new Date(nowInNY);
+            nyDate.setDate(nyDate.getDate() + dayDiff);
+            nyDate.setHours(hour, minute, 0, 0);
         }
 
-        // Convert NY to PKT (add 9 hours)
+        // Convert NY time to PKT
         const nyTimeMs = nyDate.getTime();
-        const pktDate = new Date(nyTimeMs + 9 * 60 * 60 * 1000);
+        const offsetMs = 9 * 60 * 60 * 1000; // 9 hours difference
+        const pktDate = new Date(nyTimeMs + offsetMs);
         const pktTimeISO = pktDate.toISOString();
 
         console.log({
             type: newsType,
-            pktTimeISO
+            pktDate
         });
 
         await axios.post('https://binance-backend-6n65.onrender.com/bot/add-news', {
             type: newsType,
             date: pktTimeISO
         });
-
+        
         toast.success("News Stored");
 
         setNewsTime("");
         setNewsType("");
         setNewsDay("");
     }
+
+
 
 
 

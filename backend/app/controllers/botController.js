@@ -475,39 +475,44 @@ async function TradeNumber(req, res) {
 }
 
 async function checkNewsBlock(req, res) {
-  const now = new Date();
-  const event = await NewsEvent.findOne({
-    stopTime: { $lte: now },
-    resumeTime: { $gte: now }
-  });
+    const now = new Date();
+    const event = await NewsEvent.findOne({
+        stopTime: { $lte: now },
+        resumeTime: { $gte: now }
+    });
 
-  if (event) {
-    return res.json({ blocked: true, reason: event.type, resumeAt: event.resumeTime });
-  } else {
-    return res.json({ blocked: false });
-  }
+    if (event) {
+        return res.json({ blocked: true, reason: event.type, resumeAt: event.resumeTime });
+    } else {
+        return res.json({ blocked: false });
+    }
 }
 
 
 async function addNewsEvent(req, res) {
-  const { type, date } = req.body;
-  const newsDate = new Date(date); // news time e.g., 2025-06-27T14:30:00Z
+    const { type, date } = req.body;
+    const newsDate = new Date(date); // news time e.g., 2025-06-27T14:30:00Z
 
-  let stopTime, resumeTime;
-  if (type === "NFP" || type === "CPI") {
-    stopTime = new Date(newsDate.getTime() - 2.5 * 60 * 60 * 1000); // 06:00
-    resumeTime = new Date(newsDate.getTime() + 2.5 * 60 * 60 * 1000); // 11:00
-  } else if (type === "FOMC") {
-    stopTime = new Date(newsDate.getTime() - 1.5 * 60 * 60 * 1000); // 13:00
-    resumeTime = new Date(newsDate.getTime() + 1.5 * 60 * 60 * 1000); // 16:00
-  } else if (type === "FED_SPEAK") {
-    stopTime = new Date(newsDate.getTime() - 1 * 60 * 60 * 1000); // 09:00
-    resumeTime = new Date(newsDate.getTime() + 2 * 60 * 60 * 1000); // 12:00
-  }
+    let stopTime, resumeTime;
+    if (type === "NFP" || type === "CPI") {
+        stopTime = new Date(newsDate.getTime() - 2.5 * 60 * 60 * 1000); // 06:00
+        resumeTime = new Date(newsDate.getTime() + 2.5 * 60 * 60 * 1000); // 11:00
+    } else if (type === "FOMC") {
+        stopTime = new Date(newsDate.getTime() - 1.5 * 60 * 60 * 1000); // 13:00
+        resumeTime = new Date(newsDate.getTime() + 1.5 * 60 * 60 * 1000); // 16:00
+    } else if (type === "FED_SPEAK") {
+        stopTime = new Date(newsDate.getTime() - 1 * 60 * 60 * 1000); // 09:00
+        resumeTime = new Date(newsDate.getTime() + 2 * 60 * 60 * 1000); // 12:00
+    }
 
-  const newEvent = new NewsEvent({ type, date: newsDate, stopTime, resumeTime });
-  await newEvent.save();
-  res.json({ msg: "News event added", newEvent });
+    const newEvent = new NewsEvent({ type, date: newsDate, stopTime, resumeTime });
+    await newEvent.save();
+    res.json({ msg: "News event added", newEvent });
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber,addNewsEvent,checkNewsBlock }
+async function showNews(req, res) {
+    const newsEvents = await NewsEvent.find().sort({ date: 1 }); // Optional: filter for future only
+    res.json(newsEvents);
+}
+
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock,showNews }
