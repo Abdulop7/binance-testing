@@ -7,7 +7,7 @@ const BotStatus = require('../models/botStatus')
 const TradeHistory = require("../models/tradeHistory");
 const { ATR } = require('technicalindicators');
 const newsEvent = require("../models/newsEvent");
-const Trade = require("../models/Trade");
+const Trade = require("../models/trade");
 const binance = new Binance().options({
     APIKEY: process.env.apiKey,
     APISECRET: process.env.secretKey
