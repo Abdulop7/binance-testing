@@ -1,8 +1,7 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import Header from './common/header'
 import axios from 'axios'
-
-import { nextDay, setHours, setMinutes, setSeconds } from "date-fns";
+import { isAfter, setHours, setMinutes, setSeconds, nextDay } from "date-fns";
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -13,60 +12,72 @@ export default function News() {
     const [newsType, setNewsType] = useState("");
     const [newsDay, setNewsDay] = useState("");
     const [newsTime, setNewsTime] = useState(""); // Time in HH:mm
+    const [newsList, setNewsList] = useState([]);
 
     async function submitNews(evt) {
-        evt.preventDefault();
+    evt.preventDefault();
 
-        if (!newsTime || !newsDay || !newsType) {
-            alert("Please complete all fields.");
-            return;
-        }
+    if (!newsTime || !newsDay || !newsType) {
+        alert("Please complete all fields.");
+        return;
+    }
 
-        // Convert day string to number (0 = Sunday, 1 = Monday, ...)
-        const dayMap = {
-            Sunday: 0,
-            Monday: 1,
-            Tuesday: 2,
-            Wednesday: 3,
-            Thursday: 4,
-            Friday: 5,
-            Saturday: 6
-        };
+    // Convert day string to number (0 = Sunday, 1 = Monday, ...)
+    const dayMap = {
+        Sunday: 0,
+        Monday: 1,
+        Tuesday: 2,
+        Wednesday: 3,
+        Thursday: 4,
+        Friday: 5,
+        Saturday: 6
+    };
+    const targetDay = dayMap[newsDay];
 
-        const targetDay = dayMap[newsDay];
+    const [hour, minute] = newsTime.split(':').map(Number);
+    const baseDate = new Date();
+    let nyDate;
 
-        // Parse hours and minutes from input time (NY Time)
-        const [hour, minute] = newsTime.split(':').map(Number);
+    // Create a target time for today
+    let todayTarget = setSeconds(setMinutes(setHours(baseDate, hour), minute), 0);
 
-        // Step 1: Find the next target day
-        const today = new Date();
-        let nyDate = nextDay(today, targetDay);
+    // If today is the selected day and time is still ahead
+    if (baseDate.getDay() === targetDay && isAfter(todayTarget, baseDate)) {
+        nyDate = todayTarget;
+    } else {
+        nyDate = nextDay(baseDate, targetDay);
         nyDate = setHours(nyDate, hour);
         nyDate = setMinutes(nyDate, minute);
         nyDate = setSeconds(nyDate, 0);
-
-        // Step 2: Convert NY time (UTC-4) to PKT (UTC+5)
-        const nyTimeMs = nyDate.getTime();
-        const offsetMs = 9 * 60 * 60 * 1000; // 9 hours difference between NY and PKT
-        const pktDate = new Date(nyTimeMs + offsetMs);
-        const pktTimeISO = pktDate.toISOString();
-
-        console.log({
-            type: newsType,
-            pktTimeISO
-        });
-
-        await axios.post('https://binance-backend-6n65.onrender.com/bot/add-news', {
-            type: newsType,
-            date: pktTimeISO
-        });
-
-        toast.success("News Stored")
-
-        setNewsTime("");
-        setNewsType("");
-        setNewsDay("");
     }
+
+    // Convert NY time (UTC-4) to PKT (UTC+5)
+    const nyTimeMs = nyDate.getTime();
+    const offsetMs = 9 * 60 * 60 * 1000; // 9 hours difference
+    const pktDate = new Date(nyTimeMs + offsetMs);
+    const pktTimeISO = pktDate.toISOString();
+
+    console.log({
+        type: newsType,
+        pktTimeISO
+    });
+
+    await axios.post('https://binance-backend-6n65.onrender.com/bot/add-news', {
+        type: newsType,
+        date: pktTimeISO
+    });
+
+    toast.success("News Stored");
+
+    setNewsTime("");
+    setNewsType("");
+    setNewsDay("");
+}
+
+
+    useEffect(() => {
+
+    }, [])
 
 
     return (
@@ -103,6 +114,27 @@ export default function News() {
                     </div>
 
                 </form>
+                <div className="news-log">
+                    <h1>Pending News</h1>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>
+                                    <h1>Type</h1>
+                                </th>
+                                <th>
+                                    <h1>Date</h1>
+                                </th>
+                                <th>
+                                    <h1>Stop At</h1>
+                                </th>
+                                <th>
+                                    <h1>Resume At</h1>
+                                </th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
             </div>
         </>
     )
