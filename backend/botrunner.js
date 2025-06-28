@@ -7,6 +7,31 @@ let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
 
+
+async function isPausedDueToNews() {
+  try {
+    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/show-news"); // Replace with your news fetch URL
+    const events = res.data;
+
+    const now = new Date();
+
+    for (const event of events) {
+      const stop = new Date(event.stopTime);
+      const resume = new Date(event.resumeTime);
+      if (now >= stop && now < resume) {
+        console.log(`⛔ Bot paused due to ${event.type} news — ${event.stopTime} to ${event.resumeTime}`);
+        return true;
+      }
+    }
+
+    return false;
+
+  } catch (err) {
+    console.error("Failed to check news events:", err.message);
+    return false;
+  }
+}
+
 function updLastSignal(newSignal) {
   lastSignal = newSignal;
 }
@@ -109,6 +134,13 @@ async function checkSignal() {
 
   const now = new Date();
   const pkHour = (now.getUTCHours() + 5) % 24;
+
+  const newsPause = await isPausedDueToNews();
+  if (newsPause) {
+    console.log("⛔ Bot is paused due to upcoming news");
+    await checkTPorSL(null);
+    return;
+  }
 
   if (pkHour >= 7 && pkHour < 13) {
     console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");

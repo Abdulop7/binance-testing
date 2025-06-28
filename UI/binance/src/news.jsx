@@ -14,6 +14,19 @@ export default function News() {
     const [newsTime, setNewsTime] = useState(""); // Time in HH:mm
     const [newsList, setNewsList] = useState([]);
 
+    function formatPKT(dateStr) {
+    const options = {
+        timeZone: "Asia/Karachi",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+    };
+    return new Date(dateStr).toLocaleString("en-PK", options);
+}
+
     async function submitNews(evt) {
         evt.preventDefault();
 
@@ -75,7 +88,7 @@ export default function News() {
             type: newsType,
             date: pktTimeISO
         });
-        
+
         toast.success("News Stored");
 
         setNewsTime("");
@@ -89,8 +102,18 @@ export default function News() {
 
 
     useEffect(() => {
+        async function fetchNews() {
+            try {
+                const res = await axios.get('https://binance-backend-6n65.onrender.com/bot/show-news');
+                setNewsList(res.data);
+            } catch (err) {
+                console.error("Failed to fetch news list", err);
+            }
+        }
 
-    }, [])
+        fetchNews();
+
+    }, []);
 
 
     return (
@@ -136,7 +159,7 @@ export default function News() {
                                     <h1>Type</h1>
                                 </th>
                                 <th>
-                                    <h1>Date</h1>
+                                    <h1>News Time</h1>
                                 </th>
                                 <th>
                                     <h1>Stop At</h1>
@@ -146,6 +169,16 @@ export default function News() {
                                 </th>
                             </tr>
                         </thead>
+                        <tbody>
+                            {newsList.map((news, idx) => (
+                                <tr key={idx}>
+                                    <td><h2>{news.type}</h2></td>
+                                    <td><h2>{formatPKT(news.date)}</h2></td>
+                                    <td><h2>{formatPKT(news.stopTime)}</h2></td>
+                                    <td><h2>{formatPKT(news.resumeTime)}</h2></td>
+                                </tr>
+                            ))}
+                        </tbody>
                     </table>
                 </div>
             </div>
