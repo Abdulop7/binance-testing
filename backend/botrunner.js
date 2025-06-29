@@ -170,24 +170,26 @@ function startLoop() {
 }
 
 async function stopLoop() {
-  clearInterval(intervalRef);
-  intervalRef = null;
-  lastSignal = null;
+  try {
+    clearInterval(intervalRef);
+    intervalRef = null;
+    lastSignal = null;
 
-  let res = await axios.get('https://binance-backend-6n65.onrender.com/bot/get-trade')
+    const res = await axios.get('https://binance-backend-6n65.onrender.com/bot/get-trade');
 
-  if (res) {
+    if (res?.data) {
+      await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade");
+      console.log("Trade cleared.");
+    }
 
-    await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade"); // WebUrl here
     await updateBotStatus(false, null, false);
     console.log("Bot stopped.");
-
-  }else{
+    
+  } catch (err) {
+    console.error("Error in stopLoop:", err.response?.status, err.message);
     await updateBotStatus(false, null, false);
-    console.log("Bot stopped.");
-
+    console.log("Bot force-stopped due to error.");
   }
-
 }
 
 async function isBotActive() {
