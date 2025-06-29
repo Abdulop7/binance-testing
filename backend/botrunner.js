@@ -173,6 +173,7 @@ async function stopLoop() {
   clearInterval(intervalRef);
   intervalRef = null;
   lastSignal = null;
+  await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade"); // WebUrl here
   await updateBotStatus(false, null, false);
   console.log("Bot stopped.");
 }
