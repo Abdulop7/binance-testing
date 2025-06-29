@@ -19,7 +19,7 @@ async function isPausedDueToNews() {
       const stop = new Date(event.stopTime);
       const resume = new Date(event.resumeTime);
       if (now >= stop && now < resume) {
-        console.log(`⛔ Bot paused due to ${event.type} news — ${event.stopTime} to ${event.resumeTime}`);
+        console.log(`⛔ Bot paused due to ${event.type} news `);
         return true;
       }
     }
@@ -125,6 +125,7 @@ async function signalChanged(newSignal) {
     await placeOrder(newSignal);
   } else if (inTrade) {
     console.log(`Signal is ${newSignal}. But it is Already in Trade`);
+    lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
 
   }
@@ -137,7 +138,6 @@ async function checkSignal() {
 
   const newsPause = await isPausedDueToNews();
   if (newsPause) {
-    console.log("⛔ Bot is paused due to upcoming news");
     await checkTPorSL(null);
     return;
   }
@@ -310,6 +310,7 @@ async function checkTPorSL(lastSignal) {
     }
   } catch (err) {
     console.log("No Active Trades");
+    return;
   }
 }
 

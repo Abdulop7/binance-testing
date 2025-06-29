@@ -22,6 +22,7 @@ mongoose.connect(process.env.DbUrl).then(() => {
     app.listen(port, async () => {
         console.log("Server is Running on:", port);
 
+        
         // On server startup
         const { isActive, inTrade } = await getBotStatusFromDB();
         console.log(`Bot isActive:${isActive}`);
