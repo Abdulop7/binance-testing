@@ -106,7 +106,7 @@ async function placeOrder(signal) {
 }
 
 
-async function signalChanged(newSignal) {
+async function signalChanged(newSignal, restStatus) {
 
   const { inTrade } = await getBotStatusFromDB();
 
@@ -122,7 +122,13 @@ async function signalChanged(newSignal) {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
-    await placeOrder(newSignal);
+
+    if (restStatus) {
+      console.log('Bot is in Rest. Cant open Trade');
+    } else {
+      await placeOrder(newSignal);
+    }
+
   } else if (inTrade) {
     console.log(`Signal is ${newSignal}. But it is Already in Trade`);
     lastSignal = newSignal;
@@ -136,38 +142,47 @@ async function checkSignal() {
   const now = new Date();
   const pkHour = (now.getUTCHours() + 5) % 24;
   const day = now.getUTCDay(); // 0 = Sunday, 6 = Saturday
-
-  // Stop on Saturday or Sunday
-  if (day === 0 || day === 6) {
-    console.log("⛔ Bot is paused on Saturday and Sunday.");
-    await checkTPorSL(null);
-    return;
-  }
-
   const newsPause = await isPausedDueToNews();
-  if (newsPause) {
-    await checkTPorSL(null);
-    return;
-  }
 
-  if (pkHour >= 7 && pkHour < 13) {
-    console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
-    checkTPorSL(null)
+
+  let RestDay = day === 0 || day === 6
+  let pausedOnNews = newsPause;
+  let restHours = pkHour >= 7 && pkHour < 13
+  let finalRest = RestDay || pausedOnNews || restHours
+
+  // // Stop on Saturday or Sunday
+  // if (day === 0 || day === 6) {
+  //   console.log("⛔ Bot is paused on Saturday and Sunday.");
+  //   await checkTPorSL(null);
+  //   return;
+  // }
+
+  // if (newsPause) {
+  //   await checkTPorSL(null);
+  //   return;
+  // }
+
+  // if (pkHour >= 7 && pkHour < 13) {
+  //   console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
+  //   checkTPorSL(null)
+  // }
+  // else {
+
+  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
+  const newSignal = res.data.msg.signal;
+
+  if (newSignal !== lastSignal) {
+
+    await signalChanged(newSignal, finalRest);
   }
   else {
-
-    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
-    const newSignal = res.data.msg.signal;
-
-    if (newSignal !== lastSignal) {
-
-      await signalChanged(newSignal);
-    }
-    else {
-      console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
-    }
-    await checkTPorSL(newSignal);
+    console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
   }
+  // await checkTPorSL(newSignal);
+
+  // Still check TP/SL in all cases
+  await checkTPorSL(finalRest ? null : newSignal);
+  // }
 
 }
 
@@ -192,7 +207,7 @@ async function stopLoop() {
 
     await updateBotStatus(false, null, false);
     console.log("Bot stopped.");
-    
+
   } catch (err) {
     console.error("Error in stopLoop:", err.response?.status, err.message);
     await updateBotStatus(false, null, false);
