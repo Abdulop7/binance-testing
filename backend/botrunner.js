@@ -150,6 +150,11 @@ async function checkSignal() {
   let restHours = pkHour >= 7 && pkHour < 13
   let finalRest = RestDay || pausedOnNews || restHours
 
+  if (RestDay) console.log("⛔ Bot is in Rest because it's Saturday or Sunday.");
+  if (pausedOnNews) console.log("⛔ Bot is in Rest due to major news event.");
+  if (restHours) console.log("⛔ Bot is in Rest between 7 AM and 1 PM PKT.");
+
+
   // // Stop on Saturday or Sunday
   // if (day === 0 || day === 6) {
   //   console.log("⛔ Bot is paused on Saturday and Sunday.");
