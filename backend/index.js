@@ -61,7 +61,7 @@ mongoose.connect(process.env.DbUrl).then(() => {
       } catch (err) {
         console.error("❌ Error during bot startup:", err.message);
       }
-    }, 3000); // 3-second delay
+    }, 1000 * 10); // 3-second delay
   });
 });
 
