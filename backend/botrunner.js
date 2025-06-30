@@ -135,6 +135,14 @@ async function checkSignal() {
 
   const now = new Date();
   const pkHour = (now.getUTCHours() + 5) % 24;
+  const day = now.getUTCDay(); // 0 = Sunday, 6 = Saturday
+
+  // Stop on Saturday or Sunday
+  if (day === 0 || day === 6) {
+    console.log("⛔ Bot is paused on Saturday and Sunday.");
+    await checkTPorSL(null);
+    return;
+  }
 
   const newsPause = await isPausedDueToNews();
   if (newsPause) {
