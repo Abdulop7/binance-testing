@@ -310,8 +310,8 @@ async function checkTPorSL(lastSignal) {
 
       const hitTP = (type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp);
       const earlyExit = type === "BUY"
-        ? currentPrice <= softSL && slBroken
-        : currentPrice >= softSL && slBroken;
+        ? currentPrice <= softSL || slBroken
+        : currentPrice >= softSL || slBroken;
 
       // Optional hard SL (exact 0.8% move)
       const hardSL = type === "BUY"
