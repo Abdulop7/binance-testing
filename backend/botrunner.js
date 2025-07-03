@@ -223,7 +223,7 @@ async function isBotActive() {
 
 async function initTradeCount() {
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/last-trade");
-  tradeCount = res.data.tradeNumber + 1;
+  tradeCount = res.data.tradeNumber;
   console.log("✅ Trade count restored to:", tradeCount);
 }
 
