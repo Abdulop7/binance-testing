@@ -11,7 +11,7 @@
   overflow-x: hidden;
 }
 
-.main{
+.main {
   width: 100%;
   height: auto;
   display: flex;
@@ -20,7 +20,8 @@
   align-items: center;
   background-color: rgb(39, 39, 39);
 }
-.view-price{
+
+.view-price {
   padding: 5vh 0;
   width: 80%;
   display: flex;
@@ -28,17 +29,20 @@
   flex-direction: column;
   text-align: center;
 }
-.view-price > h1{
+
+.view-price>h1 {
   font-size: 4vw;
 }
-.view-price > h2{
+
+.view-price>h2 {
   background-color: #242424;
   display: block;
   font-size: 5vw;
   padding: 1vw 0;
   border-radius: 1vw;
 }
-.bot-page{
+
+.bot-page {
   width: 100%;
   height: auto;
   display: flex;
@@ -47,67 +51,77 @@
   gap: 1vw;
   padding: 2vw 0;
 }
-.bot{
+
+.bot {
   background-color: #2c2c2c;
-  border-radius: 1vw;  
+  border-radius: 1vw;
   width: 80%;
   display: flex;
   justify-content: space-around;
   gap: 5vw;
   align-items: center;
   padding: 2vw;
-  font-size: 1.5vw ;
+  font-size: 1.5vw;
   transition: 0.5s ease;
   cursor: pointer;
-  &:hover{
-  background-color: #1f1f1f;
+
+  &:hover {
+    background-color: #1f1f1f;
   }
 }
-.signal-text{
+
+.signal-text {
   font-size: 4vw;
   background-color: rgb(29, 29, 29);
   padding: 0.7vw 2vw;
   border-radius: 1vw;
 }
-.buy{
+
+.buy {
   color: rgb(130, 194, 130);
   text-shadow: 0 0 10px green;
 }
-.sell{
+
+.sell {
   color: rgb(163, 91, 91);
   text-shadow: 0 0 10px red;
 }
-.backtest-page{
+
+.backtest-page {
   /* border: 2px solid red; */
   width: auto;
   height: auto;
   gap: 2vw;
-  padding: 2vw ;
+  padding: 2vw;
   display: flex;
   flex-direction: column;
 }
-.backtest-top{
+
+.backtest-top {
   display: flex;
   width: 100%;
   gap: 2vw;
 }
-.val-input{
+
+.val-input {
   flex-basis: 40%;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 2vw;
-  background-color:#1f1f1f;
+  background-color: #1f1f1f;
   border-radius: 1vw;
   box-shadow: 0 0 10px black;
 
 }
-.val-input > h1{
+
+.val-input>h1 {
   font-size: 3vw;
   margin-bottom: 3vw;
 }
-form{
+
+form {
   width: 100%;
   height: 100%;
   display: flex;
@@ -115,24 +129,28 @@ form{
   justify-content: center;
   align-items: center;
 }
-.inp-box{
+
+.inp-box {
   margin: 1vw 0;
   justify-content: space-between;
   align-items: center;
   display: flex;
   width: 80%;
 }
-.btn-box{
+
+.btn-box {
   width: 90%;
   align-items: center;
   justify-content: center;
   display: flex;
   padding: 1vw 0;
 }
-.inp-box > h1{
+
+.inp-box>h1 {
   font-size: 1.2vw;
 }
-.btn-box > button{
+
+.btn-box>button {
   padding: 0.5vw 1vw;
   font-size: 1.2vw;
   color: #000000;
@@ -141,33 +159,39 @@ form{
   border-radius: 0.5vw;
   cursor: pointer;
   transition: 0.3s ease;
-  &:hover{
+
+  &:hover {
     color: white;
     background-color: #292929;
     box-shadow: 0 0 10px white;
   }
-  &:active{
+
+  &:active {
     background-color: #000000;
   }
 }
-.inp-box > input{
+
+.inp-box>input {
   font-size: 1.5vw;
   height: 2vw;
   padding: 0.2vw 0.2vw;
 }
-.inp-box > select{
+
+.inp-box>select {
   font-size: 1.5vw;
   height: 2vw;
   padding: 0vw 0.2vw;
   cursor: pointer;
 }
-#strategy-box > select{
+
+#strategy-box>select {
   width: 100%;
   text-align: center;
   height: 4vw;
 }
-.result{
-  background-color:#1f1f1f;
+
+.result {
+  background-color: #1f1f1f;
   flex-basis: 60%;
   box-shadow: 0 0 10px black;
   border-radius: 1vw;
@@ -177,7 +201,8 @@ form{
   justify-content: space-around;
   position: relative;
 }
-.load-box{
+
+.load-box {
   background-color: #00000073;
   backdrop-filter: blur(10px);
   position: absolute;
@@ -185,17 +210,20 @@ form{
   height: 100%;
   border-radius: 1vw;
 }
-.loaderImg{
+
+.loaderImg {
   position: absolute;
   width: 10vw;
   display: none;
   z-index: 5;
   mix-blend-mode: color-burn;
 }
-.loaderImg.active{
+
+.loaderImg.active {
   display: block;
 }
-.res-box{
+
+.res-box {
   border: 2px solid rgb(61, 61, 61);
   display: flex;
   background-color: #2c2c2c;
@@ -206,7 +234,8 @@ form{
   width: 80%;
   cursor: pointer;
 }
-.backtest-bottom{
+
+.backtest-bottom {
   padding: 1vw;
   background-color: #1f1f1f;
   border-radius: 1vw;
@@ -216,7 +245,8 @@ form{
   box-shadow: 0 0 10px black;
 
 }
-.backtest-log{
+
+.backtest-log {
   padding: 2vw 0;
   /* border: 2px solid red; */
   width: 100%;
@@ -225,41 +255,49 @@ form{
   gap: 2vw;
   align-items: center;
 }
-table{
+
+table {
   text-align: center;
   width: 80%;
   border-collapse: collapse;
   line-height: 3vw;
 }
-th{
+
+th {
   background-color: #2c2c2c;
 
 }
-td{
+
+td {
   background-color: #1f1f1f;
 }
-.green{
+
+.green {
   background-color: green;
 }
-.red{
+
+.red {
   background-color: red;
 }
-.term-page{
+
+.term-page {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 80%;
   margin: 2vw 0;
-  padding-bottom:2vw;
+  padding-bottom: 2vw;
   background-color: #1f1f1f;
   box-shadow: 0 0 10px black;
   border-radius: 1vw;
 }
-.term-page >h1{
+
+.term-page>h1 {
   margin: 2vw 0;
   font-size: 3vw;
 }
-.term-opt{
+
+.term-opt {
   box-shadow: 0 0 10px black;
   background-color: #2c2c2c;
   border-radius: 1vw;
@@ -269,77 +307,93 @@ td{
   margin: 1vw;
   cursor: pointer;
 }
-#term-form{
+
+#term-form {
   display: flex;
   flex-direction: row;
   width: 100%;
   justify-content: space-between;
   align-items: center;
 }
-.opt{
+
+.opt {
   display: flex;
   flex-direction: column;
   gap: 1vw;
   text-align: center;
 }
-.opt > input,button{
+
+.opt>input,
+button {
   padding: 0.5vw 1vw;
   font-size: 1vw;
   border-radius: 1vw;
   border: 0;
 }
-.opt > button{
+
+.opt>button {
   cursor: pointer;
   transition: 0.5s ease;
-  &:hover{
+
+  &:hover {
     box-shadow: 0 0 10px white;
     background-color: #2c2c2c;
   }
 }
-#status-box{
+
+#status-box {
   justify-content: space-between;
 }
-.status{
+
+.status {
   display: flex;
   flex-direction: column;
   gap: 0vw;
   text-align: center;
 }
-.stats{
+
+.stats {
   display: flex;
   flex-direction: column;
   gap: 0vw;
   text-align: center;
 }
-.status-text{
+
+.status-text {
   font-size: 1vw;
   color: red;
 }
-.status-text.active{
+
+.status-text.active {
   color: green;
 }
-.stop{
+
+.stop {
   background-color: rgb(255, 36, 36);
   border-radius: 1vw;
   font-size: 1vw;
   padding: 0.5vw 1vw;
   transition: 0.5s ease;
   color: rgb(192, 192, 192);
-  &:hover{
+
+  &:hover {
     color: white;
     background-color: red;
     box-shadow: 0 0 10px white
   }
 }
-.head-status{
+
+.head-status {
   color: red;
   background-color: #030303;
   padding: 0.5vw 1vw;
   border-radius: 1vw;
 }
-.head-status.active{
+
+.head-status.active {
   color: green;
 }
+
 .logs {
   padding: 30px;
   background-color: #121212;
@@ -422,7 +476,7 @@ td{
 }
 
 
-.home-div{
+.home-div {
   padding: 2vw;
   width: 80%;
   display: flex;
@@ -430,10 +484,12 @@ td{
   align-items: center;
   justify-content: center;
 }
-.home-div > h1{
+
+.home-div>h1 {
   font-size: 3vw;
 }
-.home-status{
+
+.home-status {
   background-color: #1f1f1f;
   width: 60%;
   padding: 2vw;
@@ -444,7 +500,8 @@ td{
   border-radius: 1vw;
   gap: 1vw;
 }
-.home-secs{
+
+.home-secs {
   width: 100%;
   display: flex;
   justify-content: center;
@@ -454,19 +511,24 @@ td{
   border-radius: 1vw;
   justify-content: space-between;
 }
-.inTrade{
-  color:  rgb(189, 31, 31);
+
+.inTrade {
+  color: rgb(189, 31, 31);
 }
-.inTrade.active{
+
+.inTrade.active {
   color: rgb(86, 86, 182);
 }
-.type{
-  color:  rgb(189, 31, 31);
+
+.type {
+  color: rgb(189, 31, 31);
 }
-.type.active{
+
+.type.active {
   color: rgb(13, 155, 0);
 }
-.news{
+
+.news {
   /* border: 2px solid red; */
   border-radius: 1vw;
   background-color: #1f1f1f;
@@ -477,22 +539,26 @@ td{
   padding: 3vw;
   flex-direction: row;
 }
-.news-box{
+
+.news-box {
   display: flex;
   width: auto;
   gap: 2vw;
 }
-.news-head{
+
+.news-head {
   font-size: 3vw;
   margin-top: 5vw;
 }
+
 .news-log {
   width: 80%;
   margin-top: 50px;
   padding: 20px;
-  background-color: #1e1e1e; /* Dark background for contrast */
+  background-color: #1e1e1e;
+  /* Dark background for contrast */
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   margin-bottom: 3vw;
 }
 
@@ -538,4 +604,16 @@ td{
 
 .news-log tbody tr:last-child td {
   border-bottom: none;
+}
+
+.balance-card {
+  width: 100%;
+  padding: 2vw;
+  border: 2px solid red;
+  margin-bottom: 2vw;
+  border-radius: 1vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1vw;
 }

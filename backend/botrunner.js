@@ -149,34 +149,17 @@ async function signalChanged(newSignal, restStatus) {
 async function checkSignal() {
 
   const now = new Date();
+  const pkDate = new Date(now.getTime() + 5 * 60 * 60 * 1000); // Convert to Pakistan Time
   const pkHour = (now.getUTCHours() + 5) % 24;
-  const day = now.getUTCDay(); // 0 = Sunday, 6 = Saturday
+  const pkDay = pkDate.getUTCDay(); // PKT day
   const newsPause = await isPausedDueToNews();
 
 
-  let RestDay = day === 0 || day === 6
+  const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
   let pausedOnNews = newsPause;
   let restHours = pkHour >= 7 && pkHour < 13
   let finalRest = RestDay || pausedOnNews || restHours
 
-
-  // // Stop on Saturday or Sunday
-  // if (day === 0 || day === 6) {
-  //   console.log("⛔ Bot is paused on Saturday and Sunday.");
-  //   await checkTPorSL(null);
-  //   return;
-  // }
-
-  // if (newsPause) {
-  //   await checkTPorSL(null);
-  //   return;
-  // }
-
-  // if (pkHour >= 7 && pkHour < 13) {
-  //   console.log("⛔ Bot is paused from 7:00 AM to 1:00 PM PKT");
-  //   checkTPorSL(null)
-  // }
-  // else {
 
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
   const newSignal = res.data.msg.signal;
@@ -192,7 +175,6 @@ async function checkSignal() {
 
   // Still check TP/SL in all cases
   await checkTPorSL(finalRest ? null : newSignal);
-  // }
 
 }
 
