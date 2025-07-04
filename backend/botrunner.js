@@ -1,10 +1,12 @@
 const axios = require("axios");
 const crypto = require('crypto');
 require('dotenv').config();
-const binance = new Binance().options({
-  APIKEY: process.env.apiKey,
-  APISECRET: process.env.secretKey
-});
+// const Binance = require('node-binance-api');
+
+// const binance = new Binance().options({
+//   APIKEY: process.env.apiKey,
+//   APISECRET: process.env.secretKey
+// });
 
 
 
@@ -210,6 +212,7 @@ async function stopLoop() {
 
     if (res?.data) {
       await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade");
+      await closePosition('SUIUSDT');
       console.log("Trade cleared.");
     }
 
@@ -332,7 +335,7 @@ async function checkTPorSL(lastSignal) {
         // Use actual stored position size in USD
         const profitDollars = profitPercent * positionSizeUSD - 0.08; // Fee
 
-        closePosition('SUIUSDT');
+        await closePosition('SUIUSDT');
         
 
         // Increment trade count
