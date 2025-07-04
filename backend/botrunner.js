@@ -530,6 +530,14 @@ async function closePosition(symbol) {
   }
 }
 
+async function getFuturesBalance(req,res) {
+  const balance = await futuresGetSigned('/fapi/v2/balance');
+  res.send({
+    Balance : balance
+  })
+}
+
+
 
 
 module.exports = {
@@ -540,5 +548,6 @@ module.exports = {
   startLoop,
   updateBotStatus,
   updLastSignal,
-  initTradeCount
+  initTradeCount,
+  getFuturesBalance
 };

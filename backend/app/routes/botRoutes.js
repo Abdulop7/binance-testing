@@ -1,5 +1,6 @@
 const express = require("express");
 const { candlesFetch, doBacktest, getEma, morecandleFetch, placeOrder, ViewPrice, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory,AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews } = require("../controllers/botController");
+const { getFuturesBalance } = require("../../botrunner");
 
 let BotRouter = express.Router()
 
@@ -42,6 +43,9 @@ BotRouter.post("/add-news", addNewsEvent)
 BotRouter.get("/get-news", checkNewsBlock)
 
 BotRouter.get("/show-news", showNews)
+
+BotRouter.get("/get-balance", getFuturesBalance)
+
 
 
 module.exports = BotRouter;
