@@ -397,7 +397,7 @@ async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
   const quantity = (dollarAmount / price).toFixed(3); // adjust decimals per symbol precision
 
   // 3. Set leverage
-  await setLeverage("SUIUSDT", 0); // Leverage set Manually
+  await setLeverage("SUIUSDT", 1); // Leverage set Manually
 
   // 4. Place order
   const order = await placeFuturesOrder("SUIUSDT", side, quantity);
