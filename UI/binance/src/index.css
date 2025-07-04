@@ -605,15 +605,29 @@ button {
 .news-log tbody tr:last-child td {
   border-bottom: none;
 }
-
 .balance-card {
-  width: 100%;
-  padding: 2vw;
-  border: 2px solid red;
-  margin-bottom: 2vw;
-  border-radius: 1vw;
+  background-color: #1e1e2f;
+  color: #fff;
+  padding: 20px 30px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   gap: 1vw;
+  width: 100%;
+  margin: 20px auto;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.balance-stat h1:first-child {
+  font-size: 18px;
+  font-weight: 500;
+  color: #ccc;
+}
+
+.balance-stat h1:last-child {
+  font-size: 24px;
+  font-weight: bold;
+  color: #4ade80; /* Tailwind's green-400 */
 }

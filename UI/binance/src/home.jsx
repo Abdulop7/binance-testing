@@ -13,26 +13,28 @@ export default function Home() {
   let [leverage, setLeverage] = useState("")
 
   async function fetchStatus() {
+    try{
+      
+      let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade")
+      let fres = res.data
 
-    let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade")
-    let fres = res.data
-    // Get balance
-    const balanceRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-balance"); // ✅ correct endpoint
-    const usdtBalance = balanceRes.data.Balance.find(asset => asset.asset === "USDT")?.availableBalance;
-
-    console.log(balanceRes);
-    
-    if (res) {
+      if (res) {
       setInTrade(true)
       setEntryPrice(fres.entryPrice)
       setType(fres.type)
       setPositionSize(fres.positionSize)
       setPositionSizeUsd(fres.positionSizeUSD)
       setLeverage(fres.leverage)
-      setBlance()
-      setBlance(usdtBalance );
     }
+    }
+    catch(err){
+      
+    } 
+    // Get balance
+    const balanceRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-balance"); // ✅ correct endpoint
+    const usdtBalance = balanceRes.data.Balance.find(asset => asset.asset === "USDT")?.availableBalance;
 
+    setBlance(parseFloat(usdtBalance).toFixed(2));
 
   }
 
@@ -50,7 +52,7 @@ export default function Home() {
               <h1>Current Balance : </h1>
             </div>
             <div className="balance-stat">
-              <h1>{balance}$</h1>
+              <h1> {balance}$</h1>
             </div>
           </div>
           <h1>Bot Status</h1>

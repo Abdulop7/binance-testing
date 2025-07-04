@@ -155,8 +155,8 @@ async function checkSignal() {
   const newsPause = await isPausedDueToNews();
 
 
-  const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
-  // const RestDay = false; // Sunday or Saturday
+  // const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
+  const RestDay = false; // Testing
   let pausedOnNews = newsPause;
   let restHours = pkHour >= 7 && pkHour < 13
   let finalRest = RestDay || pausedOnNews || restHours
@@ -165,7 +165,6 @@ async function checkSignal() {
     console.log("⛔ Bot is In Rest Due to RestDay");
     
   }
-  
 
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
   const newSignal = res.data.msg.signal;
