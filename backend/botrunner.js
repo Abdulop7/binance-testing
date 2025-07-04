@@ -149,13 +149,14 @@ async function signalChanged(newSignal, restStatus) {
 async function checkSignal() {
 
   const now = new Date();
-  const pkDate = new Date(now.getTime() + 5 * 60 * 60 * 1000); // Convert to Pakistan Time
+  const pkDate = new Date(now.getTime() + 5 * 60 * 60 * 1000); // Shift to PKT
   const pkHour = (now.getUTCHours() + 5) % 24;
-  const pkDay = pkDate.getUTCDay(); // PKT day
+  const pkDay = pkDate.getDay(); // ✅ correct
   const newsPause = await isPausedDueToNews();
 
 
   const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
+  // const RestDay = false; // Sunday or Saturday
   let pausedOnNews = newsPause;
   let restHours = pkHour >= 7 && pkHour < 13
   let finalRest = RestDay || pausedOnNews || restHours
