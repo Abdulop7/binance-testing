@@ -1,5 +1,12 @@
 const axios = require("axios");
 const crypto = require('crypto');
+require('dotenv').config();
+const binance = new Binance().options({
+  APIKEY: process.env.apiKey,
+  APISECRET: process.env.secretKey
+});
+
+
 
 const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
 
@@ -79,7 +86,7 @@ async function placeOrder(signal) {
 
     const pairQuantity = (positionSizeUSD / entryPrice).toFixed(4); // ✅ More precise for low-price tokens
 
-    //  await placeFuturesOrderWithDollarAmount(signal, dollarAmount);
+     await placeFuturesOrderWithDollarAmount(signal, positionSizeUSD);
 
     // ⏰ Pakistan time manually (UTC + 5)
     const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
@@ -325,6 +332,9 @@ async function checkTPorSL(lastSignal) {
         // Use actual stored position size in USD
         const profitDollars = profitPercent * positionSizeUSD - 0.08; // Fee
 
+        closePosition('SUIUSDT');
+        
+
         // Increment trade count
         tradeCount++;
 
@@ -393,19 +403,19 @@ async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
   console.log("Place Future Order with Dollar Amount Function is running");
 
   // 1. Get current price
-  const priceResponse = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT`);
+  const priceResponse = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=SUIUSDT`);
   const price = parseFloat(priceResponse.data.price);
-  console.log("It Calulated the Dollar Amount");
+  console.log("It Calculated the Dollar Amount");
 
 
   // 2. Calculate quantity (contracts)
   const quantity = (dollarAmount / price).toFixed(3); // adjust decimals per symbol precision
 
   // 3. Set leverage
-  await setLeverage("BTCUSDT", 10); // Leverage set Manually
+  await setLeverage("SUIUSDT", 10); // Leverage set Manually
 
   // 4. Place order
-  const order = await placeFuturesOrder("BTCUSDT", side, quantity);
+  const order = await placeFuturesOrder("SUIUSDT", side, quantity);
 
   return order;
 }
@@ -517,21 +527,6 @@ async function closePosition(symbol) {
   }
 }
 
-
-// function pauseMonitorLoop() {
-//   setInterval(async () => {
-//     const now = new Date();
-//     const utcHour = now.getUTCHours(); // Always in UTC
-//     const pkHour = (utcHour + 5) % 24; // Convert to Pakistan time
-
-//     if (pkHour >= 7 && pkHour < 13) {
-//       console.log(`⛔ Bot paused from 7:00 AM to 1:00 PM (PKT) — Current time in PKT: ${pkHour}:00`);
-//       await updateBotStatus(true, null, true);
-//     } else {
-//       console.log(`✅ Bot active hours (PKT) — Current time: ${pkHour}:00`);
-//     }
-//   }, 3 * 60 * 1000); // every 3 minutes
-// }
 
 
 module.exports = {
