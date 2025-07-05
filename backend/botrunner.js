@@ -86,7 +86,7 @@ async function placeOrder(signal) {
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
     const entryPrice = res.data;
 
-    const pairQuantity = (positionSizeUSD / entryPrice).toFixed(4); // ✅ More precise for low-price tokens
+    const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
      await placeFuturesOrderWithDollarAmount(signal, 10);
 
