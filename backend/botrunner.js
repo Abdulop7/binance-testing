@@ -155,8 +155,8 @@ async function checkSignal() {
   const newsPause = await isPausedDueToNews();
 
 
-  const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
-  // const RestDay = false; // Testing for API Orders
+  // const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
+  const RestDay = false; // Testing for API Orders
   let pausedOnNews = newsPause;
   let restHours = pkHour >= 7 && pkHour < 13
   let finalRest = RestDay || pausedOnNews || restHours
