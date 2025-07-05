@@ -155,8 +155,8 @@ async function checkSignal() {
   const newsPause = await isPausedDueToNews();
 
 
-  // const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
-  const RestDay = false; // Testing
+  const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
+  // const RestDay = false; // Testing for API Orders
   let pausedOnNews = newsPause;
   let restHours = pkHour >= 7 && pkHour < 13
   let finalRest = RestDay || pausedOnNews || restHours
@@ -399,7 +399,7 @@ async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
 
 
   // 2. Calculate quantity (contracts)
-  const quantity = (dollarAmount / price).toFixed(3); // adjust decimals per symbol precision
+  const quantity = (dollarAmount / price).toFixed(1);
 
   // 3. Set leverage
   await setLeverage("SUIUSDT", 1); // Leverage set Manually
