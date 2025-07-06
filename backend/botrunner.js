@@ -88,7 +88,7 @@ async function placeOrder(signal) {
 
     const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
-     await placeFuturesOrderWithDollarAmount(signal, 6); // 2nd Arrgument is Position Size in $. Set the Dollar to 10 after Testing
+     await placeFuturesOrderWithDollarAmount(signal, 10); // 2nd Arrgument is Position Size in $. Set the Dollar to 10 after Testing
 
     // ⏰ Pakistan time manually (UTC + 5)
     const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
@@ -403,7 +403,7 @@ async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
   const quantity = Math.ceil(rawQty * 10) / 10; // rounds UP to 1 decimal place
 
   // 3. Set leverage
-  await setLeverage("SUIUSDT", 2); // Leverage set Manually. Set the Leverage to 10 after Testing
+  await setLeverage("SUIUSDT", 10); // Leverage set Manually. Set the Leverage to 10 after Testing
 
   // 4. Place order
   const order = await placeFuturesOrder("SUIUSDT", side, quantity);
