@@ -397,9 +397,11 @@ async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
   const price = parseFloat(priceResponse.data.price);
   console.log("It Calculated the Dollar Amount");
 
+  const rawQty = dollarAmount / price;
+
 
   // 2. Calculate quantity (contracts)
-  const quantity = (dollarAmount / price).toFixed(1);
+  const quantity = Math.ceil(rawQty * 10) / 10; // rounds UP to 1 decimal place
 
   // 3. Set leverage
   await setLeverage("SUIUSDT", 2); // Leverage set Manually
