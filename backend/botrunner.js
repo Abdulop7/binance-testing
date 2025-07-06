@@ -88,7 +88,7 @@ async function placeOrder(signal) {
 
     const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
-     await placeFuturesOrderWithDollarAmount(signal, 6); // 2nd Arrgument is Position Size in $
+     await placeFuturesOrderWithDollarAmount(signal, 6); // 2nd Arrgument is Position Size in $. Set the Dollar to 10 after Testing
 
     // ⏰ Pakistan time manually (UTC + 5)
     const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
@@ -155,8 +155,7 @@ async function checkSignal() {
   const newsPause = await isPausedDueToNews();
 
 
-  // const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
-  const RestDay = false; // Testing for API Orders 
+  const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
   let pausedOnNews = newsPause;
   let restHours = pkHour >= 7 && pkHour < 13
   let finalRest = RestDay || pausedOnNews || restHours
@@ -404,7 +403,7 @@ async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
   const quantity = Math.ceil(rawQty * 10) / 10; // rounds UP to 1 decimal place
 
   // 3. Set leverage
-  await setLeverage("SUIUSDT", 2); // Leverage set Manually
+  await setLeverage("SUIUSDT", 2); // Leverage set Manually. Set the Leverage to 10 after Testing
 
   // 4. Place order
   const order = await placeFuturesOrder("SUIUSDT", side, quantity);
