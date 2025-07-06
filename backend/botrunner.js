@@ -88,7 +88,7 @@ async function placeOrder(signal) {
 
     const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
-     await placeFuturesOrderWithDollarAmount(signal, 10); // 2nd Arrgument is Position Size in $. Set the Dollar to 10 after Testing
+     await placeFuturesOrderWithDollarAmount(signal, 10); // 2nd Arrgument is Position Size in $.
 
     // ⏰ Pakistan time manually (UTC + 5)
     const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
@@ -162,6 +162,10 @@ async function checkSignal() {
   
   if(RestDay){
     console.log("⛔ Bot is In Rest Due to RestDay");
+    
+  }
+  if(restHours){
+    console.log("⛔ Bot is In Rest Due to Rest Hours");
     
   }
 
