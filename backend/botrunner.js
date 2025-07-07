@@ -398,13 +398,11 @@ async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
   // 1. Get current price
   const priceResponse = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=SUIUSDT`);
   const price = parseFloat(priceResponse.data.price);
-  console.log("It Calculated the Dollar Amount");
 
   const rawQty = dollarAmount / price;
-
-
-  // 2. Calculate quantity (contracts)
   const quantity = Math.ceil(rawQty * 10) / 10; // rounds UP to 1 decimal place
+
+  await setMarginType("SUIUSDT", 'ISOLATED');
 
   // 3. Set leverage
   await setLeverage("SUIUSDT", 10); // Leverage set Manually. Set the Leverage to 10 after Testing
@@ -414,6 +412,22 @@ async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
 
   return order;
 }
+
+async function setMarginType(symbol, marginType = 'ISOLATED') {
+  try {
+    return await futuresPostSigned('/fapi/v1/marginType', {
+      symbol,
+      marginType,
+    });
+  } catch (err) {
+    if (err.response?.data?.code === -4046) {
+      console.log("Margin type already set.");
+    } else {
+      console.error("Failed to set margin type:", err.response?.data || err.message);
+    }
+  }
+}
+
 
 async function setLeverage(symbol, leverage) {
 
