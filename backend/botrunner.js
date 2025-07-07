@@ -119,8 +119,8 @@ async function getBalance() {
   const balanceData = await futuresGetSigned('/fapi/v2/account');
 
   const availableBalance = Math.floor(parseFloat(balanceData.availableBalance));
-  currentBalance = availableBalance * 10
-  console.log(`✅ Current Futures Wallet Balance: $${availableBalance}`);
+  currentBalance = (availableBalance - 1 )* 10
+  console.log(`✅ Current Futures Wallet Balance: $${availableBalance-1}`);
 
 }
 
@@ -196,10 +196,10 @@ async function checkSignal() {
 }
 
 async function startLoop() {
+  await getBalance();
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
   console.log("Bot loop started.");
-  await getBalance();
 }
 
 async function stopLoop() {

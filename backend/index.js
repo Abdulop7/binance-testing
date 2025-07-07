@@ -40,8 +40,6 @@ mongoose.connect(process.env.DbUrl).then(() => {
 
           initTradeCount();
 
-          await getBalance();
-
           const now = new Date();
           const minutes = now.getMinutes();
           const seconds = now.getSeconds();
