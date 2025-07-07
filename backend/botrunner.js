@@ -117,10 +117,9 @@ async function placeOrder(signal) {
 async function getBalance() {
 
   const balanceData = await futuresGetSigned('/fapi/v2/account');
-  const futuresBalance = balanceData.availableBalance; // or use `availableBalance`
 
-  const balance = parseFloat(futuresBalance);
-  console.log(`✅ Current Futures Wallet Balance: $${balance}`);
+  const availableBalance = Math.floor(parseFloat(balanceData.availableBalance));
+  console.log(`✅ Current Futures Wallet Balance: $${availableBalance}`);
 
 }
 
@@ -451,7 +450,7 @@ async function setLeverage(symbol, leverage) {
 
 async function futuresPostSigned(endpoint, params = {}) {
 
-  console.log("Futures Post Signed Function is running");
+  console.log("Futures Post Signed Function is running");                                 
 
 
   const timestamp = Date.now();
