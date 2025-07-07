@@ -88,7 +88,7 @@ async function placeOrder(signal) {
 
     const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
-     await placeFuturesOrderWithDollarAmount(signal, 100); // 2nd Arrgument is Position Size in $.
+    await placeFuturesOrderWithDollarAmount(signal, 1000); // 2nd Arrgument is Position Size in $.
 
     // ⏰ Pakistan time manually (UTC + 5)
     const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
@@ -114,6 +114,15 @@ async function placeOrder(signal) {
   }
 }
 
+async function getBalance() {
+
+  const balanceData = await futuresGetSigned('/fapi/v2/account');
+  const futuresBalance = balanceData.availableBalance; // or use `availableBalance`
+
+  const balance = parseFloat(futuresBalance);
+  console.log(`✅ Current Futures Wallet Balance: $${balance}`);
+
+}
 
 async function signalChanged(newSignal, restStatus) {
 
@@ -159,14 +168,14 @@ async function checkSignal() {
   let pausedOnNews = newsPause;
   let restHours = pkHour >= 7 && pkHour < 13
   let finalRest = RestDay || pausedOnNews || restHours
-  
-  if(RestDay){
+
+  if (RestDay) {
     console.log("⛔ Bot is In Rest Due to RestDay");
-    
+
   }
-  if(restHours){
+  if (restHours) {
     console.log("⛔ Bot is In Rest Due to Rest Hours");
-    
+
   }
 
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
@@ -186,10 +195,11 @@ async function checkSignal() {
 
 }
 
-function startLoop() {
+async function startLoop() {
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
   console.log("Bot loop started.");
+  await getBalance();
 }
 
 async function stopLoop() {
@@ -326,7 +336,7 @@ async function checkTPorSL(lastSignal) {
         const profitDollars = profitPercent * positionSizeUSD - 0.08; // Fee
 
         await closePosition('SUIUSDT');
-        
+
 
         // Increment trade count
         tradeCount++;
@@ -346,6 +356,8 @@ async function checkTPorSL(lastSignal) {
         // Clear active trade
         await updateBotStatus(true, lastSignal, false);
         await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade"); // WebUrl here
+
+        await getBalance();
 
         console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
       }
@@ -536,10 +548,10 @@ async function closePosition(symbol) {
   }
 }
 
-async function getFuturesBalance(req,res) {
+async function getFuturesBalance(req, res) {
   const balance = await futuresGetSigned('/fapi/v2/balance');
   res.send({
-    Balance : balance
+    Balance: balance
   })
 }
 
@@ -555,5 +567,6 @@ module.exports = {
   updateBotStatus,
   updLastSignal,
   initTradeCount,
-  getFuturesBalance
+  getFuturesBalance,
+  getBalance
 };

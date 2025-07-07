@@ -11,7 +11,7 @@ const port = process.env.PORT || 10000; // ✅ right
 
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
-const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount } = require('./botrunner.js');
+const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance } = require('./botrunner.js');
 
 app.use("/bot", BotRouter)
 
@@ -39,6 +39,8 @@ mongoose.connect(process.env.DbUrl).then(() => {
           await updateBotStatus(true, newSignal, inTrade);
 
           initTradeCount();
+
+          await getBalance();
 
           const now = new Date();
           const minutes = now.getMinutes();
