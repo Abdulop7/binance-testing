@@ -15,7 +15,7 @@ const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
 let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
-
+let currentBalance = 0
 
 async function isPausedDueToNews() {
   try {
@@ -88,7 +88,7 @@ async function placeOrder(signal) {
 
     const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
-    await placeFuturesOrderWithDollarAmount(signal, 1000); // 2nd Arrgument is Position Size in $.
+    await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
 
     // ⏰ Pakistan time manually (UTC + 5)
     const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
@@ -119,6 +119,7 @@ async function getBalance() {
   const balanceData = await futuresGetSigned('/fapi/v2/account');
 
   const availableBalance = Math.floor(parseFloat(balanceData.availableBalance));
+  currentBalance = availableBalance * 10
   console.log(`✅ Current Futures Wallet Balance: $${availableBalance}`);
 
 }
