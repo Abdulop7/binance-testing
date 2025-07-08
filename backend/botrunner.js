@@ -406,8 +406,6 @@ async function isSLBroken(type) {
 
 async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
 
-  console.log("Place Future Order with Dollar Amount Function is running");
-
   // 1. Get current price
   const priceResponse = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=SUIUSDT`);
   const price = parseFloat(priceResponse.data.price);
@@ -444,16 +442,11 @@ async function setMarginType(symbol, marginType = 'ISOLATED') {
 
 async function setLeverage(symbol, leverage) {
 
-  console.log("Set Leverage Function is running");
-
 
   return await futuresPostSigned('/fapi/v1/leverage', { symbol, leverage });
 }
 
-async function futuresPostSigned(endpoint, params = {}) {
-
-  console.log("Futures Post Signed Function is running");                                 
-
+async function futuresPostSigned(endpoint, params = {}) {                              
 
   const timestamp = Date.now();
   const query = new URLSearchParams({ ...params, timestamp }).toString();
@@ -471,15 +464,10 @@ async function futuresPostSigned(endpoint, params = {}) {
 
 function signRequest(queryString, secret) {
 
-  console.log("Sign Request Function is Running");
-
   return crypto.createHmac('sha256', secret).update(queryString).digest('hex');
 }
 
 async function placeFuturesOrder(symbol, side, quantity) {
-
-  console.log("Place Futures Order Function is Running");
-
 
   return await futuresPostSigned('/fapi/v1/order', {
     symbol,
@@ -490,9 +478,6 @@ async function placeFuturesOrder(symbol, side, quantity) {
 }
 
 async function futuresGetSigned(endpoint, params = {}) {
-
-  console.log("Futures Gets Signed Function is Running");
-
 
   const timestamp = Date.now();
   const query = new URLSearchParams({ ...params, timestamp }).toString();
@@ -510,9 +495,6 @@ async function futuresGetSigned(endpoint, params = {}) {
 
 
 async function closePosition(symbol) {
-
-  console.log("Close Position Function is Running");
-
 
   try {
     // 1. Get current open position
