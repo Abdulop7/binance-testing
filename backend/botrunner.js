@@ -82,6 +82,7 @@ async function calculateEmaSignal() {
 
 }
 
+
 const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
 
 let intervalRef = null;
@@ -623,5 +624,6 @@ module.exports = {
   initTradeCount,
   getFuturesBalance,
   getBalance,
-  calculateEmaSignal
+  calculateEmaSignal,
+  fetchCandles
 };

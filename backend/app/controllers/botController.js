@@ -16,8 +16,7 @@ let activeTrade = null;
 
 async function getAtr(req, res) {
 
-    const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/fetch"); // fetch open, high, low, close
-    const { ohlcv } = data;
+    const { ohlcv } = await botrunner.fetchCandles();
 
     if (!Array.isArray(ohlcv) || ohlcv.length < 14) {
         return res.status(400).json({ status: 0, msg: "Not enough data for ATR calculation" });
