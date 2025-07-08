@@ -1,6 +1,7 @@
 const axios = require("axios");
 const crypto = require('crypto');
 require('dotenv').config();
+const { EMA } = require("technicalindicators");
 // const Binance = require('node-binance-api');
 
 // const binance = new Binance().options({

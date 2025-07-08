@@ -1,5 +1,4 @@
 const axios = require("axios");
-const { EMA } = require("technicalindicators");
 const Binance = require("node-binance-api");
 const { model } = require("mongoose");
 const botrunner = require("../../botrunner");
