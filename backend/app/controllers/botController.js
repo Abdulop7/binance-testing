@@ -47,7 +47,7 @@ async function ViewPrice(req, res) {
     let Fprice = Math.round(price * 10000) / 10000;
     res.json(Fprice)
 }
-async function candlesFetch(req, res) {
+async function fetchCandles() {
     try {
         const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`;
         const { data } = await axios.get(url);
@@ -61,12 +61,12 @@ async function candlesFetch(req, res) {
             volume: parseFloat(candle[5])
         }));
 
-        res.json({ ohlcv });
+        return { status: 1, ohlcv };
     } catch (err) {
-        res.send({
+        return {
             status: 0,
             msg: err.message || "Failed to fetch candle data"
-        });
+        };
     }
 }
 
@@ -99,15 +99,22 @@ async function morecandleFetch(req, res) {
 }
 
 async function getEma(req, res) {
+    const result = await calculateEmaSignal();
+    res.send(result);
+}
+
+async function calculateEmaSignal() {
     try {
 
-        let response = await axios.get("https://binance-backend-6n65.onrender.com/bot/fetch"); // Web APi URL here
-
-        const data = response.data?.ohlcv?.map(c => c.closes);
+        const { ohlcv, status } = await fetchCandles();
+        if (status === 0 || !ohlcv || ohlcv.length < 60) {
+            return { status: 0, msg: "Insufficient or invalid data" };
+        }
+        const data = ohlcv.map(c => c.closes);
 
         if (!Array.isArray(data) || data.length < 60) {
             console.error("❌ EMA error: Invalid or missing candle data");
-            return res.status(500).send({ status: 0, msg: "Invalid or insufficient candle data" });
+            return { status: 0, msg: "Invalid or insufficient candle data" };
         }
 
         const ema9 = EMA.calculate({ period: 8, values: data });
@@ -127,7 +134,7 @@ async function getEma(req, res) {
             signal = "SELL";
         }
 
-        res.send({
+        return {
             status: 1,
             msg: {
                 ema9: last9,
@@ -136,12 +143,13 @@ async function getEma(req, res) {
                 ema200: last200,
                 signal
             }
-        })
+        }
     }
     catch (err) {
         console.log({ status: 0, msg: err });
 
     }
+
 }
 
 function clearOldBacktest() {
@@ -515,4 +523,4 @@ async function showNews(req, res) {
     res.json(newsEvents);
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, candlesFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock,showNews }
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews,calculateEmaSignal }

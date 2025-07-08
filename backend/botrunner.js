@@ -1,5 +1,6 @@
 const axios = require("axios");
 const crypto = require('crypto');
+const { calculateEmaSignal } = require("./app/controllers/botController");
 require('dotenv').config();
 // const Binance = require('node-binance-api');
 
@@ -179,8 +180,8 @@ async function checkSignal() {
 
   }
 
-  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
-  const newSignal = res.data.msg.signal;
+  let res = await calculateEmaSignal()
+  const newSignal = res.msg.signal;
 
   if (newSignal !== lastSignal) {
 
@@ -189,7 +190,6 @@ async function checkSignal() {
   else {
     console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
   }
-  // await checkTPorSL(newSignal);
 
   // Still check TP/SL in all cases
   await checkTPorSL(finalRest ? null : newSignal);

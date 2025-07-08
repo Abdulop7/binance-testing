@@ -31,8 +31,8 @@ mongoose.connect(process.env.DbUrl).then(() => {
         if (isActive) {
           console.log("Bot Activating...");
 
-          const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema"); // WebUrl
-          const newSignal = res.data.msg.signal;
+          let res = await calculateEmaSignal()
+          const newSignal = res.msg.signal;
           console.log("✅ Last Signal Registered: ", newSignal);
           updLastSignal(newSignal);
 
