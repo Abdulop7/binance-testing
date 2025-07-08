@@ -8,7 +8,6 @@ const TradeHistory = require("../models/tradeHistory");
 const { ATR } = require('technicalindicators');
 const NewsEvent = require("../models/newsEvent");
 const Trade = require("../models/trade");
-const { calculateEmaSignal } = require("../../ema");
 const binance = new Binance().options({
     APIKEY: process.env.apiKey,
     APISECRET: process.env.secretKey
@@ -78,7 +77,7 @@ async function morecandleFetch(req, res) {
 }
 
 async function getEma(req, res) {
-    const result = await calculateEmaSignal();
+    const result = await botrunner.calculateEmaSignal();
     res.send(result);
 }
 

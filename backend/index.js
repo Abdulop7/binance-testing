@@ -11,8 +11,7 @@ const port = process.env.PORT || 10000; // ✅ right
 
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
-const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance } = require('./botrunner.js');
-const { calculateEmaSignal } = require('./ema.js');
+const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal } = require('./botrunner.js');
 
 app.use("/bot", BotRouter)
 
