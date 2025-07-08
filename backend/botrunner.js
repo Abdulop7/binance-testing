@@ -1,6 +1,5 @@
 const axios = require("axios");
 const crypto = require('crypto');
-const { calculateEmaSignal } = require("./app/controllers/botController");
 require('dotenv').config();
 // const Binance = require('node-binance-api');
 
