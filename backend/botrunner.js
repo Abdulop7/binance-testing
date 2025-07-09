@@ -191,10 +191,16 @@ async function getBalance() {
 
   const balanceData = await futuresGetSigned('/fapi/v2/account');
 
-  let availableBalance = Math.floor(parseFloat(balanceData.availableBalance));
-  availableBalance= (availableBalance >= 100) ? 101 : availableBalance
-  currentBalance = (availableBalance - 1 )* 10
-  console.log(`✅ Current Futures Wallet Balance: $${availableBalance-1}`);
+  let availableBalance = parseFloat(balanceData.availableBalance);
+
+  // Use 98% of available balance
+  let usableBalance = availableBalance * 0.98;
+
+  // Round down and ensure safe default for very high balances
+  usableBalance = (usableBalance >= 100) ? 100 : usableBalance;
+
+  currentBalance = Math.floor(usableBalance * 10);
+  console.log(`✅ Current Futures Wallet Balance: $${currentBalance}`);
 
 }
 
