@@ -426,7 +426,7 @@ async function checkTPorSL(lastSignal) {
             : (entryPrice - currentPrice) / entryPrice;
 
         // Use actual stored position size in USD
-        const profitDollars = profitPercent * positionSizeUSD - 0.08; // Fee
+        const profitDollars = profitPercent * positionSizeUSD - 0.45; // Fee
 
         // await closePosition('SUIUSDT');
 
