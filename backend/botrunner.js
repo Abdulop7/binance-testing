@@ -160,7 +160,7 @@ async function placeOrder(signal) {
 
       const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
-      await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
+      // await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
 
       // ⏰ Pakistan time manually (UTC + 5)
       const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
@@ -305,7 +305,7 @@ async function stopLoop() {
 
     if (res?.data) {
       await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade");
-      await closePosition('SUIUSDT');
+      // await closePosition('SUIUSDT');
       console.log("Trade cleared.");
     }
 
@@ -428,7 +428,7 @@ async function checkTPorSL(lastSignal) {
         // Use actual stored position size in USD
         const profitDollars = profitPercent * positionSizeUSD - 0.08; // Fee
 
-        await closePosition('SUIUSDT');
+        // await closePosition('SUIUSDT');
 
 
         // Increment trade count
