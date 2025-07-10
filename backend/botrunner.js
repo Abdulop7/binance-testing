@@ -10,75 +10,75 @@ const { EMA } = require("technicalindicators");
 // });
 
 async function fetchCandles() {
-    try {
-        const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`;
-        const { data } = await axios.get(url);
+  try {
+    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`;
+    const { data } = await axios.get(url);
 
-        const ohlcv = data.map(candle => ({
-            time: candle[0],
-            open: parseFloat(candle[1]),
-            high: parseFloat(candle[2]),
-            low: parseFloat(candle[3]),
-            closes: parseFloat(candle[4]),
-            volume: parseFloat(candle[5])
-        }));
+    const ohlcv = data.map(candle => ({
+      time: candle[0],
+      open: parseFloat(candle[1]),
+      high: parseFloat(candle[2]),
+      low: parseFloat(candle[3]),
+      closes: parseFloat(candle[4]),
+      volume: parseFloat(candle[5])
+    }));
 
-        return { status: 1, ohlcv };
-    } catch (err) {
-        return {
-            status: 0,
-            msg: err.message || "Failed to fetch candle data"
-        };
-    }
+    return { status: 1, ohlcv };
+  } catch (err) {
+    return {
+      status: 0,
+      msg: err.message || "Failed to fetch candle data"
+    };
+  }
 }
 
 
 async function calculateEmaSignal() {
-    try {
+  try {
 
-        const { ohlcv, status } = await fetchCandles();
-        if (status === 0 || !ohlcv || ohlcv.length < 60) {
-            return { status: 0, msg: "Insufficient or invalid data" };
-        }
-        const data = ohlcv.map(c => c.closes);
-
-        if (!Array.isArray(data) || data.length < 60) {
-            console.error("❌ EMA error: Invalid or missing candle data");
-            return { status: 0, msg: "Invalid or insufficient candle data" };
-        }
-
-        const ema9 = EMA.calculate({ period: 8, values: data });
-        const ema21 = EMA.calculate({ period: 13, values: data });
-        const ema50 = EMA.calculate({ period: 21, values: data });
-        const ema200 = EMA.calculate({ period: 55, values: data });
-
-        const last9 = ema9[ema9.length - 1];
-        const last21 = ema21[ema21.length - 1];
-        const last50 = ema50[ema50.length - 1];
-        const last200 = ema200[ema200.length - 1];
-
-        let signal = "WAIT"; // Try to Remove the Wait
-        if (last9 > last21 && last21 > last50 && last50 > last200) {
-            signal = "BUY";
-        } else if (last9 < last21 && last21 < last50 && last50 < last200) {
-            signal = "SELL";
-        }
-
-        return {
-            status: 1,
-            msg: {
-                ema9: last9,
-                ema21: last21,
-                ema50: last50,
-                ema200: last200,
-                signal
-            }
-        }
+    const { ohlcv, status } = await fetchCandles();
+    if (status === 0 || !ohlcv || ohlcv.length < 60) {
+      return { status: 0, msg: "Insufficient or invalid data" };
     }
-    catch (err) {
-        console.log({ status: 0, msg: err });
+    const data = ohlcv.map(c => c.closes);
 
+    if (!Array.isArray(data) || data.length < 60) {
+      console.error("❌ EMA error: Invalid or missing candle data");
+      return { status: 0, msg: "Invalid or insufficient candle data" };
     }
+
+    const ema9 = EMA.calculate({ period: 8, values: data });
+    const ema21 = EMA.calculate({ period: 13, values: data });
+    const ema50 = EMA.calculate({ period: 21, values: data });
+    const ema200 = EMA.calculate({ period: 55, values: data });
+
+    const last9 = ema9[ema9.length - 1];
+    const last21 = ema21[ema21.length - 1];
+    const last50 = ema50[ema50.length - 1];
+    const last200 = ema200[ema200.length - 1];
+
+    let signal = "WAIT"; // Try to Remove the Wait
+    if (last9 > last21 && last21 > last50 && last50 > last200) {
+      signal = "BUY";
+    } else if (last9 < last21 && last21 < last50 && last50 < last200) {
+      signal = "SELL";
+    }
+
+    return {
+      status: 1,
+      msg: {
+        ema9: last9,
+        ema21: last21,
+        ema50: last50,
+        ema200: last200,
+        signal
+      }
+    }
+  }
+  catch (err) {
+    console.log({ status: 0, msg: err });
+
+  }
 
 }
 
@@ -142,49 +142,56 @@ async function getBotStatusFromDB() {
 }
 
 async function placeOrder(signal) {
-  const leverage = 10;
-  const capital = 100; // use your capital here
-  const positionSizeUSD = capital * leverage;
-  const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
-  const { atr } = data;
+  try {
+    const leverage = 10;
+    const capital = 100; // use your capital here
+    const positionSizeUSD = capital * leverage;
+    const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
+    const { atr } = data;
 
-  console.log(`Atr is ${atr}`);
+    console.log(`Atr is ${atr}`);
 
 
-  if (atr < 0.006) {
-    console.log(`⛔ ATR too low at ${atr} — skipping trade.`);
+    if (atr < 0.006) {
+      console.log(`⛔ ATR too low at ${atr} — skipping trade.`);
+    }
+    else {
+
+      const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
+      const entryPrice = res.data;
+
+      const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
+
+      await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
+
+      // ⏰ Pakistan time manually (UTC + 5)
+      const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
+
+      // ⏰ Get 3m candle timestamp
+      const now = Date.now();
+      const candleTimestamp = now - (now % (3 * 60 * 1000)); // <-- 🆕 This is the key
+
+      console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
+
+
+      await axios.post("https://binance-backend-6n65.onrender.com/bot/save-trade", { // WebUrl Here
+        signal: signal,
+        time: pakTime.toISOString(), // Saved in ISO format but in PKT
+        price: entryPrice,
+        positionSize: pairQuantity,
+        positionSizeUSD: positionSizeUSD,
+        leverage: leverage,
+        candleTimestamp // 🆕 New field
+      });
+
+      await updateBotStatus(true, signal, true); // now inTrade is true
+    }
   }
-  else {
+  catch (err) {
+  const msg = err?.response?.data?.msg || err.message || "Unknown error";
+  console.error(`❌ Place Order Error: ${msg}`);
+}
 
-    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
-    const entryPrice = res.data;
-
-    const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
-
-    await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
-
-    // ⏰ Pakistan time manually (UTC + 5)
-    const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
-
-    // ⏰ Get 3m candle timestamp
-    const now = Date.now();
-    const candleTimestamp = now - (now % (3 * 60 * 1000)); // <-- 🆕 This is the key
-
-    console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
-
-
-    await axios.post("https://binance-backend-6n65.onrender.com/bot/save-trade", { // WebUrl Here
-      signal: signal,
-      time: pakTime.toISOString(), // Saved in ISO format but in PKT
-      price: entryPrice,
-      positionSize: pairQuantity,
-      positionSizeUSD: positionSizeUSD,
-      leverage: leverage,
-      candleTimestamp // 🆕 New field
-    });
-
-    await updateBotStatus(true, signal, true); // now inTrade is true
-  }
 }
 
 async function getBalance() {
@@ -237,40 +244,47 @@ async function signalChanged(newSignal, restStatus) {
 
 async function checkSignal() {
 
-  const now = new Date();
-  const pkDate = new Date(now.getTime() + 5 * 60 * 60 * 1000); // Shift to PKT
-  const pkHour = (now.getUTCHours() + 5) % 24;
-  const pkDay = pkDate.getDay(); // ✅ correct
-  const newsPause = await isPausedDueToNews();
+  try {
+    const now = new Date();
+    const pkDate = new Date(now.getTime() + 5 * 60 * 60 * 1000); // Shift to PKT
+    const pkHour = (now.getUTCHours() + 5) % 24;
+    const pkDay = pkDate.getDay(); // ✅ correct
+    const newsPause = await isPausedDueToNews();
 
 
-  const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
-  let pausedOnNews = newsPause;
-  let restHours = pkHour >= 7 && pkHour < 13
-  let finalRest = RestDay || pausedOnNews || restHours
+    const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
+    let pausedOnNews = newsPause;
+    let restHours = pkHour >= 7 && pkHour < 13
+    let finalRest = RestDay || pausedOnNews || restHours
 
-  if (RestDay) {
-    console.log("⛔ Bot is In Rest Due to RestDay");
+    if (RestDay) {
+      console.log("⛔ Bot is In Rest Due to RestDay");
 
+    }
+    if (restHours) {
+      console.log("⛔ Bot is In Rest Due to Rest Hours");
+
+    }
+
+    let res = await calculateEmaSignal()
+    const newSignal = res.msg.signal;
+
+    if (newSignal !== lastSignal) {
+
+      await signalChanged(newSignal, finalRest);
+    }
+    else {
+      console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
+    }
+
+    // Still check TP/SL in all cases
+    await checkTPorSL(finalRest ? null : newSignal);
   }
-  if (restHours) {
-    console.log("⛔ Bot is In Rest Due to Rest Hours");
+  catch (err) {
+  const msg = err?.response?.data?.msg || err.message || "Unknown error";
+  console.error(`❌ Check Signal Error: ${msg}`);
+}
 
-  }
-
-  let res = await calculateEmaSignal()
-  const newSignal = res.msg.signal;
-
-  if (newSignal !== lastSignal) {
-
-    await signalChanged(newSignal, finalRest);
-  }
-  else {
-    console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
-  }
-
-  // Still check TP/SL in all cases
-  await checkTPorSL(finalRest ? null : newSignal);
 
 }
 
@@ -524,7 +538,7 @@ async function setLeverage(symbol, leverage) {
   return await futuresPostSigned('/fapi/v1/leverage', { symbol, leverage });
 }
 
-async function futuresPostSigned(endpoint, params = {}) {                              
+async function futuresPostSigned(endpoint, params = {}) {
 
   const timestamp = Date.now();
   const query = new URLSearchParams({ ...params, timestamp }).toString();
