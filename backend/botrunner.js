@@ -272,6 +272,8 @@ async function checkSignal() {
     if (newSignal !== lastSignal) {
 
       await signalChanged(newSignal, finalRest);
+    }else if(newSignal == undefined){
+      console.log("Signal is Undefined. Error in Check Signal");
     }
     else {
       console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
