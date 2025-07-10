@@ -143,9 +143,7 @@ async function getBotStatusFromDB() {
 
 async function placeOrder(signal) {
   try {
-    const leverage = 10;
-    const capital = 100; // use your capital here
-    const positionSizeUSD = capital * leverage;
+    const positionSizeUSD = currentBalance;
     const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
     const { atr } = data;
 
@@ -188,9 +186,9 @@ async function placeOrder(signal) {
     }
   }
   catch (err) {
-  const msg = err?.response?.data?.msg || err.message || "Unknown error";
-  console.error(`❌ Place Order Error: ${msg}`);
-}
+    const msg = err?.response?.data?.msg || err.message || "Unknown error";
+    console.error(`❌ Place Order Error: ${msg}`);
+  }
 
 }
 
@@ -272,7 +270,7 @@ async function checkSignal() {
     if (newSignal !== lastSignal) {
 
       await signalChanged(newSignal, finalRest);
-    }else if(newSignal == undefined){
+    } else if (newSignal == undefined) {
       console.log("Signal is Undefined. Error in Check Signal");
     }
     else {
@@ -283,9 +281,9 @@ async function checkSignal() {
     await checkTPorSL(finalRest ? null : newSignal);
   }
   catch (err) {
-  const msg = err?.response?.data?.msg || err.message || "Unknown error";
-  console.error(`❌ Check Signal Error: ${msg}`);
-}
+    const msg = err?.response?.data?.msg || err.message || "Unknown error";
+    console.error(`❌ Check Signal Error: ${msg}`);
+  }
 
 
 }
