@@ -2,12 +2,8 @@ const axios = require("axios");
 const crypto = require('crypto');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
-// const Binance = require('node-binance-api');
 
-// const binance = new Binance().options({
-//   APIKEY: process.env.apiKey,
-//   APISECRET: process.env.secretKey
-// });
+// Our Position Size for 100$ will be = 1000$ position Size with 10x leverage
 
 async function fetchCandles() {
   try {
@@ -144,7 +140,7 @@ async function getBotStatusFromDB() {
 async function placeOrder(signal) {
   try {
     let leverage = 10
-    const positionSizeUSD = currentBalance * leverage;
+    const positionSizeUSD = currentBalance ;
 
     const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
     const { atr } = data;
@@ -157,12 +153,13 @@ async function placeOrder(signal) {
     }
     else {
 
+      // await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
+      
       const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
       const entryPrice = res.data;
 
       const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
-      // await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
 
       // ⏰ Pakistan time manually (UTC + 5)
       const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
@@ -306,8 +303,8 @@ async function stopLoop() {
     const res = await axios.get('https://binance-backend-6n65.onrender.com/bot/get-trade');
 
     if (res?.data) {
-      await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade");
       // await closePosition('SUIUSDT');
+      await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade");
       console.log("Trade cleared.");
     }
 
@@ -421,6 +418,8 @@ async function checkTPorSL(lastSignal) {
 
       if (hitTP || earlyExit || hardSL) {
 
+        // await closePosition('SUIUSDT');
+
         // Calculate profit %
         const profitPercent =
           type === "BUY"
@@ -430,7 +429,6 @@ async function checkTPorSL(lastSignal) {
         // Use actual stored position size in USD
         const profitDollars = profitPercent * positionSizeUSD - 0.45; // Fee
 
-        // await closePosition('SUIUSDT');
 
 
         // Increment trade count
