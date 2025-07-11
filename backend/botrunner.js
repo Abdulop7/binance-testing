@@ -144,7 +144,7 @@ async function getBotStatusFromDB() {
 async function placeOrder(signal) {
   try {
     let leverage = 10
-    const positionSizeUSD = currentBalance;
+    const positionSizeUSD = currentBalance * leverage;
 
     const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr"); // WebUrl Here
     const { atr } = data;
