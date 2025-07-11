@@ -3,7 +3,8 @@ const crypto = require('crypto');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
 
-// Our Position Size for 100$ will be = 1000$ position Size with 10x leverage
+// Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
+// Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
 
 async function fetchCandles() {
   try {
@@ -153,7 +154,7 @@ async function placeOrder(signal) {
     }
     else {
 
-      // await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
+      await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
       
       const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
       const entryPrice = res.data;
@@ -303,7 +304,7 @@ async function stopLoop() {
     const res = await axios.get('https://binance-backend-6n65.onrender.com/bot/get-trade');
 
     if (res?.data) {
-      // await closePosition('SUIUSDT');
+      await closePosition('SUIUSDT');
       await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade");
       console.log("Trade cleared.");
     }
@@ -418,7 +419,7 @@ async function checkTPorSL(lastSignal) {
 
       if (hitTP || earlyExit || hardSL) {
 
-        // await closePosition('SUIUSDT');
+        await closePosition('SUIUSDT');
 
         // Calculate profit %
         const profitPercent =
