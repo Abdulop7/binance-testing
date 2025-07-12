@@ -9,6 +9,22 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 const port = process.env.PORT || 10000; // ✅ right
 
+const allowedIPs = ['18.156.158.53','18.156.42.200','52.59.103.54','192.168.18.83'];
+
+app.use((req, res, next) => {
+  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
+  const ipCleaned = ip.split(',')[0].replace("::ffff:", ""); // Clean for IPv4
+
+  if (!allowedIPs.includes(ipCleaned)) {
+    console.log(`⛔ Blocked access from: ${ipCleaned}`);
+    return res.status(403).send('Access denied');
+  }
+
+  next();
+});
+
+
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
 const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal } = require('./botrunner.js');
