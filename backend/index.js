@@ -33,6 +33,7 @@ app.use((req, res, next) => {
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
 const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal } = require('./botrunner.js');
+const { startPriceSocket } = require('./binanceWebSocket.js');
 
 app.use("/bot", BotRouter)
 
@@ -44,6 +45,7 @@ mongoose.connect(process.env.DbUrl).then(() => {
     console.log("Server is Running on:", port);
 
     // Delay initialization logic by 3 seconds
+    startPriceSocket();
     setTimeout(async () => {
       try {
         const { isActive, inTrade } = await getBotStatusFromDB();
