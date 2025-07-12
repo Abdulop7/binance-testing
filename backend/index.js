@@ -22,7 +22,7 @@ app.use((req, res, next) => {
   const token = authHeader?.split(" ")[1];
 
   if (!token || token !== process.env.ACCESS_TOKEN) {
-    console.log(`⛔ Unauthorized access attempt to ${req.path}`);
+    // console.log(`⛔ Unauthorized access attempt to ${req.path}`);
     return res.status(403).send('Access denied');
   }
 
