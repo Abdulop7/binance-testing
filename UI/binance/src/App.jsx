@@ -8,38 +8,35 @@ import Header from './common/header';
 
 
 function App() {
-  useEffect(()=>{
+  useEffect(() => {
 
-  getPrice();
+    getPrice();
 
-  const intervalId = setInterval(getPrice, 1000); // Fetch every second
-
-  return () => clearInterval(intervalId);
-},[])
+  }, [])
 
 
-  let [currPrice,setCurrPrice] =useState()
+  let [currPrice, setCurrPrice] = useState()
 
-  function getPrice(){
+  function getPrice() {
 
-  axios
-    .get("https://binance-backend-6n65.onrender.com/bot/view") // WebUrl here 
-    .then(res => {
-      setCurrPrice(res.data.Fprice);
-    })
-    .catch(err => console.error(err));
-}
-  
+    axios
+      .get("https://binance-backend-6n65.onrender.com/bot/view") // WebUrl here 
+      .then(res => {
+        setCurrPrice(res.data.Fprice);
+      })
+      .catch(err => console.error(err));
+  }
+
 
   return (
     <>
-    <Header/>
-    <div className="main">
-      <div className="view-price">
-        <h1>BTCUSDT</h1>
-        <h2>{ currPrice ? currPrice : "Loading..."}$</h2>
+      <Header />
+      <div className="main">
+        <div className="view-price">
+          <h1>BTCUSDT</h1>
+          <h2>{currPrice ? currPrice : "Loading..."}$</h2>
+        </div>
       </div>
-    </div>
     </>
   )
 }
