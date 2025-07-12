@@ -41,8 +41,8 @@ async function getAtr(req, res) {
 
 async function ViewPrice(req, res) {
     try {
-        const price = await getPrice();
-        res.json({ price }); // Returns: { "price": 0.5432 }
+        const Fprice = await getPrice();
+        res.json({ Fprice }); // Returns: { "price": 0.5432 }
     } catch (err) {
         console.error("❌ Failed to fetch Live price:", err.message);
         res.status(500).json({ error: "Failed to fetch live price" });
