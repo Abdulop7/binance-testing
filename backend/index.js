@@ -21,6 +21,9 @@ app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader?.split(" ")[1];
 
+  console.log("🔐 Client token:", token);
+  console.log("🔐 Server expected token:", process.env.ACCESS_TOKEN);
+
   if (!token || token !== process.env.ACCESS_TOKEN) {
     console.log(`⛔ Unauthorized access attempt to ${req.path}`);
     return res.status(403).send('Access denied');
