@@ -2,6 +2,7 @@ const axios = require("axios");
 const crypto = require('crypto');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
+const { getPrice } = require("./app/controllers/botController");
 
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
 // Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
@@ -156,8 +157,8 @@ async function placeOrder(signal) {
 
       await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
       
-      const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl Here
-      const entryPrice = res.data;
+
+      const entryPrice = await getPrice();
 
       const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
@@ -267,15 +268,20 @@ async function checkSignal() {
     let res = await calculateEmaSignal()
     const newSignal = res.msg.signal;
 
-    if (newSignal !== lastSignal) {
+    if (newSignal == undefined) {
+
+      console.log("Signal is Undefined. Error in Check Signal");
+
+    } else if (newSignal !== lastSignal) {
 
       await signalChanged(newSignal, finalRest);
-    } else if (newSignal == undefined) {
-      console.log("Signal is Undefined. Error in Check Signal");
     }
     else {
+
       console.log(`Same signal: ${newSignal} at ${new Date().toLocaleTimeString()}`);
+
     }
+
 
     // Still check TP/SL in all cases
     await checkTPorSL(finalRest ? null : newSignal);
@@ -284,7 +290,6 @@ async function checkSignal() {
     const msg = err?.response?.data?.msg || err.message || "Unknown error";
     console.error(`❌ Check Signal Error: ${msg}`);
   }
-
 
 }
 
@@ -396,8 +401,7 @@ async function checkTPorSL(lastSignal) {
     else {
 
       // Get the current market price
-      const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/view"); // WebUrl here
-      const currentPrice = res.data;
+      const currentPrice = await getPrice();
 
       // Set TP and check SL
       const tp = type === "BUY" ? entryPrice * 1.005 : entryPrice * 0.995;

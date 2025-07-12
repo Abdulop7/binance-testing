@@ -40,10 +40,22 @@ async function getAtr(req, res) {
 }
 
 async function ViewPrice(req, res) {
+    try {
+        const price = await getPrice();
+        res.json({ price }); // Returns: { "price": 0.5432 }
+    } catch (err) {
+        console.error("❌ Failed to fetch Live price:", err.message);
+        res.status(500).json({ error: "Failed to fetch live price" });
+    }
+}
+
+
+async function getPrice(){
+
     let response = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${process.env.symbol}`);
     let price = response.data.price
     let Fprice = Math.round(price * 10000) / 10000;
-    res.json(Fprice)
+    return Fprice
 }
 
 
@@ -451,4 +463,4 @@ async function showNews(req, res) {
     res.json(newsEvents);
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews }
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews,getPrice }
