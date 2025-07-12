@@ -9,7 +9,11 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 const port = process.env.PORT || 10000; // ✅ right
 
-const allowedIPs = ['18.156.158.53','18.156.42.200','52.59.103.54','192.168.18.83'];
+const allowedIPs = ['18.156.158.53','18.156.42.200','52.59.103.54' // Render IPs
+  ,'124.29.212.168' // Office IP
+,'124.29.212.168' // Frontend IP
+,  
+];
 
 app.use((req, res, next) => {
   const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
