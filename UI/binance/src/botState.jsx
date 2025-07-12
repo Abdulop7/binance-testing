@@ -12,7 +12,12 @@ export function BotControllerProvider({ children }) {
   useEffect(() => {
     async function fetchStatus() {
       try {
-        const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status"); // WebURL Here
+        const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status",
+            {
+                headers: {
+                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+                }
+            }); // WebURL Here
         setActive(res.data.isActive);
         setSignalD(res.data.lastSignal);
         
@@ -30,14 +35,24 @@ export function BotControllerProvider({ children }) {
     setActive(true);
     // const qty = e.target.qty.value;
 
-    await axios.post("http://localhost:100/bot/start-bot")
+    await axios.post("http://localhost:100/bot/start-bot",
+            {
+                headers: {
+                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+                }
+            })
     .then(()=> toast.success("Bot Started"))
 
   }
 
   async function stopBot() {
 
-      const res = await axios.post("http://localhost:100/bot/stop-bot");
+      const res = await axios.post("http://localhost:100/bot/stop-bot",
+            {
+                headers: {
+                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+                }
+            });
       toast.success(res.data.message);
       setActive(false);
       setSignalD("");
