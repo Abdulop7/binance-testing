@@ -15,17 +15,17 @@ export default function News() {
     const [newsList, setNewsList] = useState([]);
 
     function formatPKT(dateStr) {
-    const options = {
-        timeZone: "Asia/Karachi",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-    };
-    return new Date(dateStr).toLocaleString("en-PK", options);
-}
+        const options = {
+            timeZone: "Asia/Karachi",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+        };
+        return new Date(dateStr).toLocaleString("en-PK", options);
+    }
 
     async function submitNews(evt) {
         evt.preventDefault();
@@ -87,7 +87,13 @@ export default function News() {
         await axios.post('https://binance-backend-6n65.onrender.com/bot/add-news', {
             type: newsType,
             date: pktTimeISO
-        });
+        },
+            {
+                headers: {
+                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+                }
+            }
+        );
 
         toast.success("News Stored");
 
@@ -104,7 +110,12 @@ export default function News() {
     useEffect(() => {
         async function fetchNews() {
             try {
-                const res = await axios.get('https://binance-backend-6n65.onrender.com/bot/show-news');
+                const res = await axios.get('https://binance-backend-6n65.onrender.com/bot/show-news',
+                    {
+                        headers: {
+                            Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+                        }
+                    });
                 setNewsList(res.data);
             } catch (err) {
                 console.error("Failed to fetch news list", err);

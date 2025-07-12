@@ -15,7 +15,12 @@ export default function Home() {
   async function fetchStatus() {
     try{
       
-      let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade")
+      let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade",
+            {
+                headers: {
+                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+                }
+            })
       let fres = res.data
 
       if (res) {
@@ -31,7 +36,12 @@ export default function Home() {
       
     } 
     // Get balance
-    const balanceRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-balance"); // ✅ correct endpoint
+    const balanceRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-balance",
+            {
+                headers: {
+                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+                }
+            }); // ✅ correct endpoint
     const usdtBalance = balanceRes.data.Balance.find(asset => asset.asset === "USDT")?.availableBalance;
 
     setBlance(parseFloat(usdtBalance).toFixed(2));

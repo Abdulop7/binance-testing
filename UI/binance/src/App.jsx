@@ -20,7 +20,12 @@ function App() {
   function getPrice() {
 
     axios
-      .get("https://binance-backend-6n65.onrender.com/bot/view") // WebUrl here 
+      .get("https://binance-backend-6n65.onrender.com/bot/view",
+            {
+                headers: {
+                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+                }
+            }) // WebUrl here 
       .then(res => {
         setCurrPrice(res.data.Fprice);
       })

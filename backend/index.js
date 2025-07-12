@@ -17,12 +17,12 @@ const allowedIPs = [
 ];
 
 app.use((req, res, next) => {
-  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
-  const ipCleaned = ip.split(',')[0].replace("::ffff:", ""); // Clean for IPv4
+  const authHeader = req.headers['authorization'];
+  const token = authHeader?.split(" ")[1];
 
-  if (!allowedIPs.includes(ipCleaned)) {
-    console.log(`⛔ Blocked access from: ${ipCleaned}`);
+  if (!token || token !== process.env.ACCESS_TOKEN) {
+    console.log(`⛔ Unauthorized access attempt to ${req.path}`);
     return res.status(403).send('Access denied');
   }
 
