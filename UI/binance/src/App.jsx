@@ -25,7 +25,7 @@ function App() {
   axios
     .get("https://binance-backend-6n65.onrender.com/bot/view") // WebUrl here 
     .then(res => {
-      setCurrPrice(res.data);
+      setCurrPrice(res.data.Fprice);
     })
     .catch(err => console.error(err));
 }
