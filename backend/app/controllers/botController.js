@@ -41,7 +41,7 @@ async function getAtr(req, res) {
 
 async function ViewPrice(req, res) {
     try {
-        const Fprice = await getPrice();
+        const Fprice = await botrunner.getPrice();
         res.json({ Fprice }); // Returns: { "price": 0.5432 }
     } catch (err) {
         console.error("❌ Failed to fetch Live price:", err.message);
@@ -49,21 +49,6 @@ async function ViewPrice(req, res) {
     }
 }
 
-
-async function getPrice(){
-
-    const response = await axios.get(
-      `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${process.env.symbol}`,
-      {
-        headers: {
-          'X-MBX-APIKEY': process.env.apiKey // ✅ safer + better rate limits
-        },
-      }
-    );
-    let price = response.data.price
-    let Fprice = Math.round(price * 10000) / 10000;
-    return Fprice
-}
 
 
 async function morecandleFetch(req, res) {
@@ -470,4 +455,4 @@ async function showNews(req, res) {
     res.json(newsEvents);
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews,getPrice }
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews }

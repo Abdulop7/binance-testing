@@ -2,10 +2,25 @@ const axios = require("axios");
 const crypto = require('crypto');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
-const { getPrice } = require("./app/controllers/botController");
 
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
 // Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
+
+async function getPrice(){
+
+    const response = await axios.get(
+      `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${process.env.symbol}`,
+      {
+        headers: {
+          'X-MBX-APIKEY': process.env.apiKey // ✅ safer + better rate limits
+        },
+      }
+    );
+    let price = response.data.price
+    let Fprice = Math.round(price * 10000) / 10000;
+    return Fprice
+}
+
 
 async function fetchCandles() {
   try {
@@ -650,5 +665,6 @@ module.exports = {
   getFuturesBalance,
   getBalance,
   calculateEmaSignal,
-  fetchCandles
+  fetchCandles,
+  getPrice
 };
