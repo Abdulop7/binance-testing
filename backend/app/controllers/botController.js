@@ -52,7 +52,14 @@ async function ViewPrice(req, res) {
 
 async function getPrice(){
 
-    let response = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${process.env.symbol}`);
+    const response = await axios.get(
+      `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${process.env.symbol}`,
+      {
+        headers: {
+          'X-MBX-APIKEY': process.env.apiKey // ✅ safer + better rate limits
+        },
+      }
+    );
     let price = response.data.price
     let Fprice = Math.round(price * 10000) / 10000;
     return Fprice
