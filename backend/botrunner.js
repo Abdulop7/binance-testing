@@ -9,16 +9,6 @@ const { getLatestPrice } = require("./binanceWebSocket");
 
 async function getPrice(){
 
-    // const response = await axios.get(
-    //   `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${process.env.symbol}`,
-    //   {
-    //     headers: {
-    //       'X-MBX-APIKEY': process.env.apiKey // ✅ safer + better rate limits
-    //     },
-    //   }
-    // );
-    // let price = response.data.price
-    // let Fprice = Math.round(price * 10000) / 10000;
     let Fprice = await getLatestPrice()
     return Fprice
 }
@@ -40,6 +30,7 @@ async function fetchCandles() {
 
     return { status: 1, ohlcv };
   } catch (err) {
+    console.log("⚠️ Binance candles Fetching Error");
     return {
       status: 0,
       msg: err.message || "Failed to fetch candle data"

@@ -12,7 +12,7 @@ const port = process.env.PORT || 10000; // ✅ right
 const allowedIPs = [
   '18.156.158.53', '18.156.42.200', '52.59.103.54' // Render IPs
   , '124.29.212.168' // Office IP
-  , '124.29.212.168' // Frontend IP
+  , '124.29.212.168', '103.18.10.203' // Frontend IP
   ,
 ];
 
