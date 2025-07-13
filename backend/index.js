@@ -33,7 +33,7 @@ app.use((req, res, next) => {
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
 const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal } = require('./botrunner.js');
-const { startPriceSocket } = require('./binanceWebSocket.js');
+const { startPriceSocket, startCandleSocket } = require('./binanceWebSocket.js');
 
 app.use("/bot", BotRouter)
 
