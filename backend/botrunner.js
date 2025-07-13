@@ -355,6 +355,7 @@ async function stopLoop() {
     if (res?.data) {
       await closePosition('SUIUSDT');
       await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade",
+        {},
         {
           headers: {
             Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -523,6 +524,7 @@ async function checkTPorSL(lastSignal) {
         // Clear active trade
         await updateBotStatus(true, lastSignal, false);
         await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade",
+          {},
           {
             headers: {
               Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
