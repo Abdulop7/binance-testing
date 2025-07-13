@@ -2,7 +2,7 @@ const axios = require("axios");
 const crypto = require('crypto');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
-const { getLatestPrice } = require("./binanceWebSocket");
+const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
 
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
 // Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
@@ -14,35 +14,40 @@ async function getPrice() {
 }
 
 
-async function fetchCandles() {
-  try {
-    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`;
-    const { data } = await axios.get(url);
+// async function fetchCandles() {
+//   try {
+//     const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`;
+//     const { data } = await axios.get(url);
 
-    const ohlcv = data.map(candle => ({
-      time: candle[0],
-      open: parseFloat(candle[1]),
-      high: parseFloat(candle[2]),
-      low: parseFloat(candle[3]),
-      closes: parseFloat(candle[4]),
-      volume: parseFloat(candle[5])
-    }));
+//     const ohlcv = data.map(candle => ({
+//       time: candle[0],
+//       open: parseFloat(candle[1]),
+//       high: parseFloat(candle[2]),
+//       low: parseFloat(candle[3]),
+//       closes: parseFloat(candle[4]),
+//       volume: parseFloat(candle[5])
+//     }));
 
-    return { status: 1, ohlcv };
-  } catch (err) {
-    console.log("⚠️ Binance candles Fetching Error");
-    return {
-      status: 0,
-      msg: err.message || "Failed to fetch candle data"
-    };
-  }
-}
+//     return { status: 1, ohlcv };
+//   } catch (err) {
+//     console.log("⚠️ Binance candles Fetching Error", {
+//       msg: err.message,
+//       code: err.code,
+//       status: err?.response?.status,
+//       data: err?.response?.data,
+//     });
+//     return {
+//       status: 0,
+//       msg: err.message || "Failed to fetch candle data"
+//     };
+//   }
+// }
 
 
 async function calculateEmaSignal() {
   try {
 
-    const { ohlcv, status } = await fetchCandles();
+    const { ohlcv, status } = await getLatestCandle();
     if (status === 0 || !ohlcv || ohlcv.length < 60) {
       return { status: 0, msg: "Insufficient or invalid data" };
     }
@@ -99,11 +104,11 @@ let currentBalance = 0
 async function isPausedDueToNews() {
   try {
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/show-news",
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            }); // Replace with your news fetch URL
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      }); // Replace with your news fetch URL
     const events = res.data;
 
     const now = new Date();
@@ -150,11 +155,11 @@ async function updateBotStatus(active, signal, inTrade) {
 async function getBotStatusFromDB() {
   try {
     const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status",
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            }); // WebUrl here
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      }); // WebUrl here
     return res.data;
   } catch (err) {
     console.error("Failed to fetch bot status from DB:", err.message);
@@ -168,11 +173,11 @@ async function placeOrder(signal) {
     const positionSizeUSD = currentBalance;
 
     const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr",
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            }); // WebUrl Here
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      }); // WebUrl Here
     const { atr } = data;
 
     console.log(`Atr is ${atr}`);
@@ -210,11 +215,11 @@ async function placeOrder(signal) {
         leverage: leverage,
         candleTimestamp // 🆕 New field
       },
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            });
+        {
+          headers: {
+            Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+          }
+        });
 
       await updateBotStatus(true, signal, true); // now inTrade is true
     }
@@ -340,20 +345,20 @@ async function stopLoop() {
     lastSignal = null;
 
     const res = await axios.get('https://binance-backend-6n65.onrender.com/bot/get-trade',
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            });
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      });
 
     if (res?.data) {
       await closePosition('SUIUSDT');
       await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade",
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            });
+        {
+          headers: {
+            Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+          }
+        });
       console.log("Trade cleared.");
     }
 
@@ -374,11 +379,11 @@ async function isBotActive() {
 
 async function initTradeCount() {
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/last-trade",
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            });
+    {
+      headers: {
+        Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+      }
+    });
   tradeCount = res.data.tradeNumber;
   console.log("✅ Trade count restored to:", tradeCount);
 }
@@ -392,11 +397,11 @@ async function waitForNext3MinCandle() {
   console.log("✅ Bot Active from DB:", alreadyActive);
 
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema",
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            }); // WebUrl Here
+    {
+      headers: {
+        Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+      }
+    }); // WebUrl Here
   const newSignal = res.data.msg.signal;
   console.log("✅ Last Signal Registered");
   lastSignal = res.data.msg.signal // Updated the Local LastSignal
@@ -442,11 +447,11 @@ async function checkTPorSL(lastSignal) {
 
     // Get the active trade data from the backend
     const tradeRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade",
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            }); // WebUrl here 
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      }); // WebUrl here 
     const { entryPrice, type, positionSize, positionSizeUSD, leverage, candleTimestamp } = tradeRes.data;
 
     console.log("Active Trade Found ✅");
@@ -508,20 +513,20 @@ async function checkTPorSL(lastSignal) {
           positionSizeUSD: positionSizeUSD,
           leverage: leverage,
         },
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            });
+          {
+            headers: {
+              Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+            }
+          });
 
         // Clear active trade
         await updateBotStatus(true, lastSignal, false);
         await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade",
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            }); // WebUrl here
+          {
+            headers: {
+              Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+            }
+          }); // WebUrl here
 
         await getBalance();
 
@@ -538,11 +543,11 @@ async function checkTPorSL(lastSignal) {
 async function isSLBroken(type) {
 
   const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema",
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            }); // WebUrl here 
+    {
+      headers: {
+        Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+      }
+    }); // WebUrl here 
   const { ema9, ema21, ema50, ema200 } = res.data.msg;
 
   const emaValues = [ema200, ema50, ema21, ema9]; // Assuming 200 is the longest
@@ -723,6 +728,6 @@ module.exports = {
   getFuturesBalance,
   getBalance,
   calculateEmaSignal,
-  fetchCandles,
+  // fetchCandles,
   getPrice
 };

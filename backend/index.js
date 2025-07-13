@@ -45,7 +45,8 @@ mongoose.connect(process.env.DbUrl).then(() => {
     console.log("Server is Running on:", port);
 
     // Delay initialization logic by 3 seconds
-    startPriceSocket();
+    startPriceSocket("suiusdt");
+    startCandleSocket("suiusdt");
     setTimeout(async () => {
       try {
         const { isActive, inTrade } = await getBotStatusFromDB();
