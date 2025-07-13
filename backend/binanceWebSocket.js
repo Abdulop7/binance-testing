@@ -58,7 +58,7 @@ function startCandleSocket(symbol = "suiusdt") {
           candleBuffer.shift(); // Remove oldest
         }
 
-        console.log("🟩 New 3m Candle:", candle);
+        console.log("🟩 New 3m Candles:", candleBuffer);
       }
     } catch (err) {
       console.error("❌ Failed to parse candle:", err.message);
