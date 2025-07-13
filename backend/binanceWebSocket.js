@@ -75,29 +75,29 @@ function startCandleSocket(symbol = "suiusdt") {
   });
 }
 
-// async function prefillCandles(symbol = "SUIUSDT", interval = "3m", limit = 1000) {
-//   try {
-//     const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`;
-//     const { data } = await axios.get(url);
+async function prefillCandles(symbol = "SUIUSDT", interval = "3m", limit = 1000) {
+  try {
+    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`;
+    const { data } = await axios.get(url);
 
-//     // Format and store in candleBuffer
-//     candleBuffer = data.map(candle => ({
-//       openTime: candle[0],
-//       open: parseFloat(candle[1]),
-//       high: parseFloat(candle[2]),
-//       low: parseFloat(candle[3]),
-//       closes: parseFloat(candle[4]),
-//       volume: parseFloat(candle[5]),
-//       closeTime: candle[6],
-//     }));
+    // Format and store in candleBuffer
+    candleBuffer = data.map(candle => ({
+      openTime: candle[0],
+      open: parseFloat(candle[1]),
+      high: parseFloat(candle[2]),
+      low: parseFloat(candle[3]),
+      closes: parseFloat(candle[4]),
+      volume: parseFloat(candle[5]),
+      closeTime: candle[6],
+    }));
 
-//     latestCandle = candleBuffer[candleBuffer.length - 1];
+    latestCandle = candleBuffer[candleBuffer.length - 1];
 
-//     console.log(`✅ Pre-filled ${candleBuffer.length} candles.`);
-//   } catch (err) {
-//     console.error("❌ Failed to prefill candles:", err.message);
-//   }
-// }
+    console.log(`✅ Pre-filled ${candleBuffer.length} candles.`);
+  } catch (err) {
+    console.error("❌ Failed to prefill candles:", err.message);
+  }
+}
 
 // Export functions
 function getLatestPrice() {
@@ -113,4 +113,5 @@ module.exports = {
   startCandleSocket,
   getLatestPrice,
   getLatestCandle,
+  prefillCandles
 };

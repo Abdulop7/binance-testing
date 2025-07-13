@@ -33,7 +33,7 @@ app.use((req, res, next) => {
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
 const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal } = require('./botrunner.js');
-const { startPriceSocket, startCandleSocket } = require('./binanceWebSocket.js');
+const { startPriceSocket, startCandleSocket, prefillCandles } = require('./binanceWebSocket.js');
 
 app.use("/bot", BotRouter)
 
@@ -44,9 +44,10 @@ mongoose.connect(process.env.DbUrl).then(() => {
   app.listen(port, () => {
     console.log("Server is Running on:", port);
 
-    // Delay initialization logic by 3 seconds
+    prefillCandles("SUIUSDT", "3m", 1000);
     startPriceSocket("suiusdt");
     startCandleSocket("suiusdt");
+    // Delay initialization logic by 3 seconds
     setTimeout(async () => {
       try {
         const { isActive, inTrade } = await getBotStatusFromDB();
@@ -87,7 +88,7 @@ mongoose.connect(process.env.DbUrl).then(() => {
       } catch (err) {
         console.error("❌ Error during bot startup:", err.message);
       }
-    }, 1000 * 30); // 3-second delay
+    }, 1000 * 30); // 30-second delay
   });
 });
 
