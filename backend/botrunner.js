@@ -2,7 +2,7 @@ const axios = require("axios");
 const crypto = require('crypto');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
-const { getLatestPrice } = require("./binanceWebSocket");
+const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
 
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
 // Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
@@ -16,7 +16,7 @@ async function getPrice() {
 
 async function fetchCandles() {
   try {
-    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`;
+    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1`;
     const { data } = await axios.get(url);
 
     const ohlcv = data.map(candle => ({
@@ -47,7 +47,14 @@ async function fetchCandles() {
 async function calculateEmaSignal() {
   try {
 
-    const { ohlcv, status } = await fetchCandles();
+    const { ohlcv, status } = await getLatestCandle();
+    console.log(`Candle From Websocket : ${ohlcv}`);
+
+    let random = await fetchCandles()
+    let randomCandle = random.ohlcv
+    console.log(`Candle from Fetch Candles API : ${randomCandle}`);
+    
+    
     
     if (status === 0 || !ohlcv || ohlcv.length < 60) {
       return { status: 0, msg: "Insufficient or invalid data" };
@@ -729,6 +736,6 @@ module.exports = {
   getFuturesBalance,
   getBalance,
   calculateEmaSignal,
-  fetchCandles,
+  // fetchCandles,
   getPrice
 };
