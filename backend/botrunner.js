@@ -50,12 +50,7 @@ async function calculateEmaSignal() {
     const { ohlcv, status } = await getLatestCandle();
     console.log(`Candle From Websocket : ${ohlcv}`);
 
-    let random = await fetchCandles()
-    let randomCandle = random.ohlcv
-    console.log(`Candle from Fetch Candles API : ${randomCandle}`);
-    
-    
-    
+
     if (status === 0 || !ohlcv || ohlcv.length < 60) {
       return { status: 0, msg: "Insufficient or invalid data" };
     }
@@ -95,7 +90,7 @@ async function calculateEmaSignal() {
     }
   }
   catch (err) {
-    console.log({ status: 0, msg: err });
+    console.log({ status: 0, msg: err.message });
 
   }
 
@@ -288,6 +283,16 @@ async function signalChanged(newSignal, restStatus) {
 }
 
 async function checkSignal() {
+  try{
+    let random = await fetchCandles()
+    let randomCandle = random.ohlcv
+    console.log(`Candle from Fetch Candles API : ${randomCandle}`);
+
+  }
+  catch(err){
+    console.log(`Erro Message from Fetch Candles API : ${err.message}`);
+    
+  }
 
   try {
     const now = new Date();
