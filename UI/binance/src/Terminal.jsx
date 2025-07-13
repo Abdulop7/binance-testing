@@ -16,6 +16,7 @@ export default function Terminal() {
         e.preventDefault();
 
         axios.post('https://binance-backend-6n65.onrender.com/bot/start-bot',
+            {},
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -30,6 +31,7 @@ export default function Terminal() {
     function stopBot(){
 
         axios.post('https://binance-backend-6n65.onrender.com/bot/stop-bot',
+            {},
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
