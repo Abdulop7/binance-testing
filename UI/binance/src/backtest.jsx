@@ -42,7 +42,7 @@ export default function Backtest() {
     setLoader(true)
     evt.preventDefault();
 
-    let res = await axios.get(`https://binance-backend-6n65.onrender.com/bot/backtest?pSize=${input.position}&capital=${input.capital}&qty=${input.interval}&symbol=${input.symbol}&ema=${input.ema}&tf=${input.tf}`,
+    let res = await axios.get(`https://binance-backend-try.onrender.com/bot/backtest?pSize=${input.position}&capital=${input.capital}&qty=${input.interval}&symbol=${input.symbol}&ema=${input.ema}&tf=${input.tf}`,
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

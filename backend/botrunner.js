@@ -104,7 +104,7 @@ let currentBalance = 0
 
 async function isPausedDueToNews() {
   try {
-    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/show-news",
+    const res = await axios.get(`${process.env.backendURL}/bot/show-news`,
       {
         headers: {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -138,7 +138,7 @@ function updLastSignal(newSignal) {
 
 async function updateBotStatus(active, signal, inTrade) {
   try {
-    await axios.post("https://binance-backend-6n65.onrender.com/bot/status", { // WebUrl Here
+    await axios.post(`${process.env.backendURL}/bot/status`, { // WebUrl Here
       isActive: active,
       lastSignal: signal,
       inTrade: inTrade
@@ -155,7 +155,7 @@ async function updateBotStatus(active, signal, inTrade) {
 
 async function getBotStatusFromDB() {
   try {
-    const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status",
+    const res = await axios.get(`${process.env.backendURL}/bot/status`,
       {
         headers: {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -173,7 +173,7 @@ async function placeOrder(signal) {
     let leverage = 10
     const positionSizeUSD = currentBalance;
 
-    const { data } = await axios.get("https://binance-backend-6n65.onrender.com/bot/atr",
+    const { data } = await axios.get(`${process.env.backendURL}/bot/atr`,
       {
         headers: {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -207,7 +207,7 @@ async function placeOrder(signal) {
       console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
 
 
-      await axios.post("https://binance-backend-6n65.onrender.com/bot/save-trade", { // WebUrl Here
+      await axios.post(`${process.env.backendURL}/bot/save-trade`, { // WebUrl Here
         signal: signal,
         time: pakTime.toISOString(), // Saved in ISO format but in PKT
         price: entryPrice,
@@ -345,7 +345,7 @@ async function stopLoop() {
     intervalRef = null;
     lastSignal = null;
 
-    const res = await axios.get('https://binance-backend-6n65.onrender.com/bot/get-trade',
+    const res = await axios.get(`${process.env.backendURL}/bot/get-trade`,
       {
         headers: {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -354,7 +354,7 @@ async function stopLoop() {
 
     if (res?.data) {
       await closePosition('SUIUSDT');
-      await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade",
+      await axios.post(`${process.env.backendURL}/bot/clear-trade`,
         {},
         {
           headers: {
@@ -380,7 +380,7 @@ async function isBotActive() {
 }
 
 async function initTradeCount() {
-  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/last-trade",
+  const res = await axios.get(`${process.env.backendURL}/bot/last-trade`,
     {
       headers: {
         Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -398,7 +398,7 @@ async function waitForNext3MinCandle() {
 
   console.log("✅ Bot Active from DB:", alreadyActive);
 
-  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema",
+  const res = await axios.get(`${process.env.backendURL}/bot/ema`,
     {
       headers: {
         Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -448,7 +448,7 @@ async function checkTPorSL(lastSignal) {
 
 
     // Get the active trade data from the backend
-    const tradeRes = await axios.get("https://binance-backend-6n65.onrender.com/bot/get-trade",
+    const tradeRes = await axios.get(`${process.env.backendURL}/bot/get-trade`,
       {
         headers: {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -505,7 +505,7 @@ async function checkTPorSL(lastSignal) {
         tradeCount++;
 
         // Save trade history
-        await axios.post("https://binance-backend-6n65.onrender.com/bot/save-history", { // WebUrl Here
+        await axios.post(`https://binance-backend-6n65.onrender.com/bot/save-history`, { // WebUrl Here
           profit: profitDollars.toFixed(2),
           entryPrice: entryPrice,
           time: new Date().toISOString(),
@@ -523,7 +523,7 @@ async function checkTPorSL(lastSignal) {
 
         // Clear active trade
         await updateBotStatus(true, lastSignal, false);
-        await axios.post("https://binance-backend-6n65.onrender.com/bot/clear-trade",
+        await axios.post(`${process.env.backendURL}/bot/clear-trade`,
           {},
           {
             headers: {
@@ -545,7 +545,7 @@ async function checkTPorSL(lastSignal) {
 
 async function isSLBroken(type) {
 
-  const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema",
+  const res = await axios.get(`${process.env.backendURL}/bot/ema`,
     {
       headers: {
         Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

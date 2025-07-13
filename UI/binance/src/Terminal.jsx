@@ -15,7 +15,7 @@ export default function Terminal() {
 
         e.preventDefault();
 
-        axios.post('https://binance-backend-6n65.onrender.com/bot/start-bot',
+        axios.post('https://binance-backend-try.onrender.com/bot/start-bot',
             {},
             {
                 headers: {
@@ -30,7 +30,7 @@ export default function Terminal() {
 
     function stopBot(){
 
-        axios.post('https://binance-backend-6n65.onrender.com/bot/stop-bot',
+        axios.post('https://binance-backend-try.onrender.com/bot/stop-bot',
             {},
             {
                 headers: {

@@ -12,7 +12,7 @@ export default function Logs() {
 
     async function fetchTrades() {
 
-      let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/all-trades",
+      let res = await axios.get("https://binance-backend-try.onrender.com/bot/all-trades",
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

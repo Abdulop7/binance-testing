@@ -8,7 +8,7 @@ export default function Bots() {
 
   async function getSignal(){
 
-    let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema",
+    let res = await axios.get("https://binance-backend-try.onrender.com/bot/ema",
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

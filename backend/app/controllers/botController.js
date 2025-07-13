@@ -105,7 +105,7 @@ async function doBacktest(req, res) {
     emaPeriods.sort((a, b) => b - a);
 
     // Fetch close prices
-    let response = await axios.get(`https://binance-backend-6n65.onrender.com/bot/more-fetch?qty=${qty}&symbol=${symbol}&tf=${tf}`,
+    let response = await axios.get(`${process.env.backendURL}/bot/more-fetch?qty=${qty}&symbol=${symbol}&tf=${tf}`,
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

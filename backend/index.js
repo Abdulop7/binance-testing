@@ -3,18 +3,11 @@ const express = require("express");
 require("dotenv").config()
 let app = express()
 app.use(cors())
-const axios = require('axios');
-const { EMA } = require('technicalindicators');
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 const port = process.env.PORT || 10000; // ✅ right
 
-const allowedIPs = [
-  '18.156.158.53', '18.156.42.200', '52.59.103.54' // Render IPs
-  , '124.29.212.168' // Office IP
-  , '124.29.212.168', '103.18.10.203' // Frontend IP
-  ,
-];
+
 
 app.use((req, res, next) => {
 
