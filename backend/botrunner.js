@@ -48,8 +48,6 @@ async function calculateEmaSignal() {
   try {
 
     const { ohlcv, status } = await getLatestCandle();
-    console.log(`Candle From Websocket : ${ohlcv}`);
-
 
     if (status === 0 || !ohlcv || ohlcv.length < 60) {
       return { status: 0, msg: "Insufficient or invalid data" };
