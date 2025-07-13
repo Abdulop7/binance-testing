@@ -57,8 +57,6 @@ function startCandleSocket(symbol = "suiusdt") {
         if (candleBuffer.length > maxCandles) {
           candleBuffer.shift(); // Remove oldest
         }
-
-        console.log("🟩 New 3m Candles:", candleBuffer);
       }
     } catch (err) {
       console.error("❌ Failed to parse candle:", err.message);
