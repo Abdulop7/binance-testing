@@ -2,7 +2,7 @@ const axios = require("axios");
 const crypto = require('crypto');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
-const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
+const { getLatestPrice } = require("./binanceWebSocket");
 
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
 // Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
@@ -14,41 +14,40 @@ async function getPrice() {
 }
 
 
-// async function fetchCandles() {
-//   try {
-//     const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`;
-//     const { data } = await axios.get(url);
+async function fetchCandles() {
+  try {
+    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1000`;
+    const { data } = await axios.get(url);
 
-//     const ohlcv = data.map(candle => ({
-//       time: candle[0],
-//       open: parseFloat(candle[1]),
-//       high: parseFloat(candle[2]),
-//       low: parseFloat(candle[3]),
-//       closes: parseFloat(candle[4]),
-//       volume: parseFloat(candle[5])
-//     }));
+    const ohlcv = data.map(candle => ({
+      time: candle[0],
+      open: parseFloat(candle[1]),
+      high: parseFloat(candle[2]),
+      low: parseFloat(candle[3]),
+      closes: parseFloat(candle[4]),
+      volume: parseFloat(candle[5])
+    }));
 
-//     return { status: 1, ohlcv };
-//   } catch (err) {
-//     console.log("⚠️ Binance candles Fetching Error", {
-//       msg: err.message,
-//       code: err.code,
-//       status: err?.response?.status,
-//       data: err?.response?.data,
-//     });
-//     return {
-//       status: 0,
-//       msg: err.message || "Failed to fetch candle data"
-//     };
-//   }
-// }
+    return { status: 1, ohlcv };
+  } catch (err) {
+    console.log("⚠️ Binance candles Fetching Error", {
+      msg: err.message,
+      code: err.code,
+      status: err?.response?.status,
+      data: err?.response?.data,
+    });
+    return {
+      status: 0,
+      msg: err.message || "Failed to fetch candle data"
+    };
+  }
+}
 
 
 async function calculateEmaSignal() {
   try {
 
-    const { ohlcv, status } = await getLatestCandle();
-    console.log(ohlcv);
+    const { ohlcv, status } = await fetchCandles();
     
     if (status === 0 || !ohlcv || ohlcv.length < 60) {
       return { status: 0, msg: "Insufficient or invalid data" };
@@ -730,6 +729,6 @@ module.exports = {
   getFuturesBalance,
   getBalance,
   calculateEmaSignal,
-  // fetchCandles,
+  fetchCandles,
   getPrice
 };

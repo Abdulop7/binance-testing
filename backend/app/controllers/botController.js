@@ -7,7 +7,7 @@ const TradeHistory = require("../models/tradeHistory");
 const { ATR } = require('technicalindicators');
 const NewsEvent = require("../models/newsEvent");
 const Trade = require("../models/trade");
-const { getLatestCandle } = require("../../binanceWebSocket");
+// const { getLatestCandle } = require("../../binanceWebSocket");
 const binance = new Binance().options({
     APIKEY: process.env.apiKey,
     APISECRET: process.env.secretKey
@@ -17,7 +17,7 @@ let activeTrade = null;
 
 async function getAtr(req, res) {
 
-    const { ohlcv } = await getLatestCandle();
+    const { ohlcv } = await botrunner.fetchCandles();
 
     if (!Array.isArray(ohlcv) || ohlcv.length < 14) {
         return res.status(400).json({ status: 0, msg: "Not enough data for ATR calculation" });
