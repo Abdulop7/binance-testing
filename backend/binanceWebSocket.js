@@ -1,5 +1,5 @@
-// binancePriceSocket.js
 const WebSocket = require("ws");
+const axios = require("axios");
 
 let latestPrice = null;
 let latestCandle = null;
