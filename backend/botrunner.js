@@ -13,7 +13,6 @@ async function getPrice() {
   return Fprice
 }
 
-
 async function calculateEmaSignal() {
   try {
 
@@ -219,6 +218,42 @@ async function getBalance() {
 
 }
 
+async function isMaxDrawdownHit() {
+  try {
+    const res = await axios.get("https://binance-backend-try.onrender.com/bot/all-trades", {
+      headers: {
+        Authorization: `Bearer A.saboor786`,
+      },
+    });
+
+    const trades = res.data;
+
+    // Get today's PKT date string
+    const nowPKT = new Date(Date.now() + 5 * 60 * 60 * 1000);
+    const todayPKT = nowPKT.toISOString().split("T")[0]; // e.g., "2025-07-13"
+
+    // Filter today's trades
+    const todayTrades = trades.filter(trade => {
+      const tradeDatePKT = new Date(trade.time).toISOString().split("T")[0];
+      return tradeDatePKT === todayPKT;
+    });
+
+    // Calculate total losses only
+    const totalLoss = todayTrades.reduce((acc, trade) => {
+      const p = parseFloat(trade.profit || 0);
+      return p < 0 ? acc + Math.abs(p) : acc;
+    }, 0);
+
+    console.log(`📉 Today's ${todayPKT} Total Drawdown: $${totalLoss.toFixed(2)}`);
+
+    return totalLoss >= 20;
+  } catch (err) {
+    console.error("❌ Failed to check drawdown:", err.message);
+    return false;
+  }
+}
+
+
 async function signalChanged(newSignal, restStatus) {
 
   const { inTrade } = await getBotStatusFromDB();
@@ -258,21 +293,17 @@ async function checkSignal() {
     const pkHour = (now.getUTCHours() + 5) % 24;
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
+    const drawdownHit = await isMaxDrawdownHit();
 
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;
     let restHours = pkHour >= 7 && pkHour < 13
-    let finalRest = RestDay || pausedOnNews || restHours
+    let finalRest = RestDay || pausedOnNews || restHours || drawdownHit
 
-    if (RestDay) {
-      console.log("⛔ Bot is In Rest Due to RestDay");
-
-    }
-    if (restHours) {
-      console.log("⛔ Bot is In Rest Due to Rest Hours");
-
-    }
+    if (RestDay) console.log("⛔ Bot is In Rest Due to RestDay");
+    if (restHours) console.log("⛔ Bot is In Rest Due to Rest Hours");
+    if (drawdownHit) console.log("⛔ Bot is Paused Due to Max Daily Drawdown");
 
     let res = await calculateEmaSignal()
     const newSignal = res.msg.signal;
@@ -457,8 +488,8 @@ async function checkTPorSL(lastSignal) {
         : currentPrice >= softSL;
 
       if (hitTP || earlyExit || hardSL) {
-        await closePosition('SUIUSDT');
 
+        await closePosition('SUIUSDT');
 
         // Calculate profit %
         const profitPercent =
@@ -467,7 +498,7 @@ async function checkTPorSL(lastSignal) {
             : (entryPrice - currentPrice) / entryPrice;
 
         // Use actual stored position size in USD
-        const profitDollars = profitPercent * positionSizeUSD - 0.75; // Fee
+        const profitDollars = profitPercent * positionSizeUSD - 0.45; // Fee
 
 
 
@@ -475,7 +506,7 @@ async function checkTPorSL(lastSignal) {
         tradeCount++;
 
         // Save trade history
-        await axios.post(`${process.env.backendURL}/bot/save-history`, { // WebUrl Here
+        await axios.post(`https://binance-backend-6n65.onrender.com/bot/save-history`, { // WebUrl Here
           profit: profitDollars.toFixed(2),
           entryPrice: entryPrice,
           time: new Date().toISOString(),
@@ -603,7 +634,7 @@ async function futuresPostSigned(endpoint, params = {}) {
 
   const response = await axios.post(url, null, {
     headers: {
-      'X-MBX-APIKEY': process.env.apiKey,
+      'X-MBX-APIKEY': process.env.apiKey, 
     },
   });
   return response.data;

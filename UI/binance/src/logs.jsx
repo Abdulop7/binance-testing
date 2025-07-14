@@ -8,7 +8,6 @@ export default function Logs() {
   let [tProfit, setTprofit] = useState("")
 
   useEffect(() => {
-    console.log("Page Opened");
 
     async function fetchTrades() {
 
