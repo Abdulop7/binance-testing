@@ -231,7 +231,7 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
     // Get today's PKT date string (like "2025-07-14")
     const now = new Date();
     const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-    const todayStr = pkNow.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const todayStr = pkNow.toISOString().slice(0, 10);
 
     // Filter only today's trades
     const todaysTrades = allTrades.filter(trade => {
@@ -239,25 +239,26 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
       return tradeDate === todayStr;
     });
 
-    let peak = 0;
     let equity = 0;
-    let maxDrawdown = 0;
+    let lowestEquity = 0;
 
     for (const trade of todaysTrades) {
-      const profit = parseFloat(trade.profit) || 0; // Ensure numeric
+      const profit = parseFloat(trade.profit) || 0;
       equity += profit;
-      peak = Math.max(peak, equity);
-      const drawdown = peak - equity;
-      maxDrawdown = Math.max(maxDrawdown, drawdown);
+
+      if (equity < lowestEquity) {
+        lowestEquity = equity;
+      }
     }
 
-    console.log(`📉 Today's ${todayStr} Total Drawdown: $${maxDrawdown.toFixed(2)}`);
+    const maxDrawdown = Math.abs(lowestEquity);
 
-    return maxDrawdown >= maxDrawdownLimit;
+    console.log(`📉 Max Drawdown for ${todayStr}: $${maxDrawdown.toFixed(2)}`);
 
+    return maxDrawdown;
   } catch (err) {
-    console.error("❌ Error in isMaxDrawdownHit:", err.message);
-    return false;
+    console.error("❌ Error in getTodayMaxDrawdown:", err.message);
+    return 0;
   }
 }
 
