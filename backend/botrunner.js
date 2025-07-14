@@ -218,37 +218,45 @@ async function getBalance() {
 
 }
 
-async function isMaxDrawdownHit() {
+async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
   try {
-    const res = await axios.get("https://binance-backend-try.onrender.com/bot/all-trades", {
+    const res = await axios.get(`${process.env.backendURL}/bot/all-trades`, {
       headers: {
-        Authorization: `Bearer A.saboor786`,
-      },
+        Authorization: `Bearer A.saboor786`
+      }
     });
 
-    const trades = res.data;
+    const allTrades = res.data;
 
-    // Get today's PKT date string
-    const nowPKT = new Date(Date.now() + 5 * 60 * 60 * 1000);
-    const todayPKT = nowPKT.toISOString().split("T")[0]; // e.g., "2025-07-13"
+    // Get today's PKT date string (like "2025-07-14")
+    const now = new Date();
+    const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+    const todayStr = pkNow.toISOString().slice(0, 10); // "YYYY-MM-DD"
 
-    // Filter today's trades
-    const todayTrades = trades.filter(trade => {
-      const tradeDatePKT = new Date(trade.time).toISOString().split("T")[0];
-      return tradeDatePKT === todayPKT;
+    // Filter only today's trades
+    const todaysTrades = allTrades.filter(trade => {
+      const tradeDate = new Date(trade.time).toISOString().slice(0, 10);
+      return tradeDate === todayStr;
     });
 
-    // Calculate total losses only
-    const totalLoss = todayTrades.reduce((acc, trade) => {
-      const p = parseFloat(trade.profit || 0);
-      return p < 0 ? acc + Math.abs(p) : acc;
-    }, 0);
+    // Calculate max drawdown from peak equity
+    let peak = 0;
+    let equity = 0;
+    let maxDrawdown = 0;
 
-    console.log(`📉 Today's ${todayPKT} Total Drawdown: $${totalLoss.toFixed(2)}`);
+    for (const trade of todaysTrades) {
+      equity += trade.profit;
+      peak = Math.max(peak, equity);
+      const drawdown = peak - equity;
+      maxDrawdown = Math.max(maxDrawdown, drawdown);
+    }
 
-    return totalLoss >= 20;
+    console.log(`📉 Today's ${todayStr} Total Drawdown: $${maxDrawdown.toFixed(2)}`);
+
+    return maxDrawdown >= maxDrawdownLimit;
+
   } catch (err) {
-    console.error("❌ Failed to check drawdown:", err.message);
+    console.error("❌ Error in isMaxDrawdownHit:", err.message);
     return false;
   }
 }
