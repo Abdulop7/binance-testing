@@ -218,49 +218,49 @@ async function getBalance() {
 
 }
 
-async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
-  try {
-    const res = await axios.get(`${process.env.backendURL}/bot/all-trades`, {
-      headers: {
-        Authorization: `Bearer A.saboor786`
-      }
-    });
+// async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
+//   try {
+//     const res = await axios.get(`${process.env.backendURL}/bot/all-trades`, {
+//       headers: {
+//         Authorization: `Bearer A.saboor786`
+//       }
+//     });
 
-    const allTrades = res.data;
+//     const allTrades = res.data;
 
-    // Get today's PKT date string (like "2025-07-14")
-    const now = new Date();
-    const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-    const todayStr = pkNow.toISOString().slice(0, 10);
+//     // Get today's PKT date string (like "2025-07-14")
+//     const now = new Date();
+//     const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+//     const todayStr = pkNow.toISOString().slice(0, 10);
 
-    // Filter and sort today's trades
-    const todaysTrades = allTrades
-      .filter(trade => {
-        const tradeDate = new Date(trade.time).toISOString().slice(0, 10);
-        return tradeDate === todayStr;
-      })
-      .sort((a, b) => new Date(a.time) - new Date(b.time)); // Sort by time ascending
+//     // Filter and sort today's trades
+//     const todaysTrades = allTrades
+//       .filter(trade => {
+//         const tradeDate = new Date(trade.time).toISOString().slice(0, 10);
+//         return tradeDate === todayStr;
+//       })
+//       .sort((a, b) => new Date(a.time) - new Date(b.time)); // Sort by time ascending
 
-    let equity = 0;
-    let minEquity = 0;
+//     let equity = 0;
+//     let minEquity = 0;
 
-    for (const trade of todaysTrades) {
-      const profit = parseFloat(trade.profit) || 0;
-      equity += profit;
-      minEquity = Math.min(minEquity, equity); // Track lowest point
-    }
+//     for (const trade of todaysTrades) {
+//       const profit = parseFloat(trade.profit) || 0;
+//       equity += profit;
+//       minEquity = Math.min(minEquity, equity); // Track lowest point
+//     }
 
-    const totalDrawdown = Math.abs(minEquity);
+//     const totalDrawdown = Math.abs(minEquity);
 
-    console.log(`📉 Max Drawdown from start of day (${todayStr}): $${totalDrawdown.toFixed(2)}`);
+//     console.log(`📉 Max Drawdown from start of day (${todayStr}): $${totalDrawdown.toFixed(2)}`);
 
-    return totalDrawdown >= maxDrawdownLimit;
+//     return totalDrawdown >= maxDrawdownLimit;
 
-  } catch (err) {
-    console.error("❌ Error in isMaxDrawdownHit:", err.message);
-    return false;
-  }
-}
+//   } catch (err) {
+//     console.error("❌ Error in isMaxDrawdownHit:", err.message);
+//     return false;
+//   }
+// }
 
 async function signalChanged(newSignal, restStatus) {
 
@@ -301,17 +301,17 @@ async function checkSignal() {
     const pkHour = (now.getUTCHours() + 5) % 24;
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
-    const drawdownHit = await isMaxDrawdownHit();
+    // const drawdownHit = await isMaxDrawdownHit();
 
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;
     let restHours = pkHour >= 7 && pkHour < 13
-    let finalRest = RestDay || pausedOnNews || restHours || drawdownHit
+    let finalRest = RestDay || pausedOnNews || restHours // || drawdownHit
 
     if (RestDay) console.log("⛔ Bot is In Rest Due to RestDay");
     if (restHours) console.log("⛔ Bot is In Rest Due to Rest Hours");
-    if (drawdownHit) console.log("⛔ Bot is Paused Due to Max Daily Drawdown");
+    // if (drawdownHit) console.log("⛔ Bot is Paused Due to Max Daily Drawdown");
 
     let res = await calculateEmaSignal()
     const newSignal = res.msg.signal;
