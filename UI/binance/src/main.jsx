@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Provider } from "react-redux";
 import './index.css'
 import App from './App.jsx'
 import Header from './common/header.jsx'
@@ -12,6 +13,7 @@ import Terminal from './Terminal.jsx'
 import { ToastContainer, toast } from 'react-toastify';
 import { BotControllerProvider } from './botState.jsx'
 import News from './news.jsx'
+import { store } from './redux/store.js';
 
 
 let allRoutes = createBrowserRouter([
@@ -47,10 +49,12 @@ let allRoutes = createBrowserRouter([
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
+    <Provider store={store}>
     <BotControllerProvider>
       <ToastContainer />
       
       <RouterProvider router={allRoutes} />
     </BotControllerProvider>
+    </Provider>
   </StrictMode>,
 )

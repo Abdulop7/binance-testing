@@ -14,36 +14,6 @@ async function getPrice() {
 }
 
 
-// async function fetchCandles() {
-//   try {
-//     const url = `https://fapi.binance.com/fapi/v1/klines?symbol=SUIUSDT&interval=3m&limit=1`;
-//     const { data } = await axios.get(url);
-
-//     const ohlcv = data.map(candle => ({
-//       time: candle[0],
-//       open: parseFloat(candle[1]),
-//       high: parseFloat(candle[2]),
-//       low: parseFloat(candle[3]),
-//       closes: parseFloat(candle[4]),
-//       volume: parseFloat(candle[5])
-//     }));
-
-//     return { status: 1, ohlcv };
-//   } catch (err) {
-//     console.log("⚠️ Binance candles Fetching Error", {
-//       msg: err.message,
-//       code: err.code,
-//       status: err?.response?.status,
-//       data: err?.response?.data,
-//     });
-//     return {
-//       status: 0,
-//       msg: err.message || "Failed to fetch candle data"
-//     };
-//   }
-// }
-
-
 async function calculateEmaSignal() {
   try {
 
@@ -497,7 +467,7 @@ async function checkTPorSL(lastSignal) {
             : (entryPrice - currentPrice) / entryPrice;
 
         // Use actual stored position size in USD
-        const profitDollars = profitPercent * positionSizeUSD - 0.45; // Fee
+        const profitDollars = profitPercent * positionSizeUSD - 0.75; // Fee
 
 
 

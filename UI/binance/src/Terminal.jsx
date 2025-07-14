@@ -6,9 +6,13 @@ import { toast, ToastContainer } from 'react-toastify';
 import { useRef } from 'react';
 import { useEffect } from 'react';
 import { useBotController } from './botState';
+import { useDispatch, useSelector } from 'react-redux';
 
 
 export default function Terminal() {
+    const dispatch = useDispatch()
+  const botStatus = useSelector(state => state)
+
     const { active} = useBotController();
 
     async function startBot(e){
@@ -25,7 +29,9 @@ export default function Terminal() {
         .then(()=>{
             toast.success("Bot Started")
         })
-
+        
+        dispatch({type : 'ENABLE'})
+        
     }
 
     function stopBot(){
@@ -40,7 +46,8 @@ export default function Terminal() {
         .then(()=>{
             toast.success("Bot Stopped")
         })
-
+        
+        dispatch({type : 'DISABLE'})
     }
 
 
@@ -64,7 +71,7 @@ export default function Terminal() {
                     </div>
                     <div id='status-box' className="term-opt">
                         <div className="status">
-                            <h1 className={`status-text ${active ? "active" : ""} `}>{active ? "Active" : "Inactive"}</h1>
+                            <h1 className={`status-text ${botStatus ? "active" : ""} `}>{botStatus ? "Active" : "Inactive"}</h1>
                             <h1>BTCUSDT</h1>
                         </div>
                         <div className="stats">

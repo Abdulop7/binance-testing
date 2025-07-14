@@ -1,10 +1,13 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { useDispatch } from "react-redux";
 
 const BotControllerContext = createContext();
 
 export function BotControllerProvider({ children }) {
+  
+  const dispatch = useDispatch()
   const [active, setActive] = useState(false);
   const [signalD, setSignalD] = useState("");
 
@@ -18,8 +21,8 @@ export function BotControllerProvider({ children }) {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
                 }
             }); // WebURL Here
-        setActive(res.data.isActive);
         setSignalD(res.data.lastSignal);
+        res.data.isActive ? dispatch({type : 'ENABLE'}) : dispatch({type : 'DISABLE'})
         
       } catch (error) {
         toast.error("Failed to fetch bot status");
