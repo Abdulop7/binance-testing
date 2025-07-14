@@ -239,13 +239,13 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
       return tradeDate === todayStr;
     });
 
-    // Calculate max drawdown from peak equity
     let peak = 0;
     let equity = 0;
     let maxDrawdown = 0;
 
     for (const trade of todaysTrades) {
-      equity += trade.profit;
+      const profit = parseFloat(trade.profit) || 0; // Ensure numeric
+      equity += profit;
       peak = Math.max(peak, equity);
       const drawdown = peak - equity;
       maxDrawdown = Math.max(maxDrawdown, drawdown);
@@ -642,7 +642,7 @@ async function futuresPostSigned(endpoint, params = {}) {
 
   const response = await axios.post(url, null, {
     headers: {
-      'X-MBX-APIKEY': process.env.apiKey, 
+      'X-MBX-APIKEY': process.env.apiKey,
     },
   });
   return response.data;
