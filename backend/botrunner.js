@@ -457,8 +457,8 @@ async function checkTPorSL(lastSignal) {
         : currentPrice >= softSL;
 
       if (hitTP || earlyExit || hardSL) {
-
         await closePosition('SUIUSDT');
+
 
         // Calculate profit %
         const profitPercent =
@@ -475,7 +475,7 @@ async function checkTPorSL(lastSignal) {
         tradeCount++;
 
         // Save trade history
-        await axios.post(`https://binance-backend-6n65.onrender.com/bot/save-history`, { // WebUrl Here
+        await axios.post(`${process.env.backendURL}/bot/save-history`, { // WebUrl Here
           profit: profitDollars.toFixed(2),
           entryPrice: entryPrice,
           time: new Date().toISOString(),
