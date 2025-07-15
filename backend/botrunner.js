@@ -252,8 +252,6 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
     }
 
     const drawdown = Math.abs(minEquity);
-    console.log(`📉 Max Drawdown from Start of ${todayStr}: $${drawdown.toFixed(2)}`);
-    console.log(`Drawdown: ${drawdown} >= ${maxDrawdownLimit} and the Result ${drawdown >= maxDrawdownLimit}`);
     
     return drawdown >= maxDrawdownLimit;
 
@@ -304,18 +302,16 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
-    console.log(`Drawdown hit on CheckSignal is: ${drawdownHit}`);
-    
 
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;
     let restHours = pkHour >= 7 && pkHour < 13
-    let finalRest = RestDay || pausedOnNews || restHours // || drawdownHit
+    let finalRest = RestDay || pausedOnNews || restHours || drawdownHit
 
     if (RestDay) console.log("⛔ Bot is In Rest Due to RestDay");
     if (restHours) console.log("⛔ Bot is In Rest Due to Rest Hours");
-    // if (drawdownHit) console.log("⛔ Bot is Paused Due to Max Daily Drawdown");
+    if (drawdownHit) console.log("⛔ Bot is Paused Due to Max Daily Drawdown");
 
     let res = await calculateEmaSignal()
     const newSignal = res.msg.signal;
