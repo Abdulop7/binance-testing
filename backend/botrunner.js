@@ -241,8 +241,6 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
       })
       .sort((a, b) => a.tradeNumber - b.tradeNumber); // Sort ascending
 
-    console.log(`Today Trades : ${JSON.stringify(todaysTrades, null, 2)}`);
-
     // Cumulative equity calculation
     let equity = 0;
     let minEquity = 0;
@@ -255,6 +253,8 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
 
     const drawdown = Math.abs(minEquity);
     console.log(`📉 Max Drawdown from Start of ${todayStr}: $${drawdown.toFixed(2)}`);
+    console.log(`Drawdown: ${drawdown} >= ${maxDrawdownLimit} and the Result ${drawdown >= maxDrawdownLimit}`);
+    
     return drawdown >= maxDrawdownLimit;
 
   } catch (err) {
@@ -304,6 +304,8 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
+    console.log(`Drawdown hit on CheckSignal is: ${drawdownHit}`);
+    
 
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
