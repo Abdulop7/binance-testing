@@ -221,40 +221,38 @@ async function getBalance() {
 async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
   try {
     const res = await axios.get(`${process.env.backendURL}/bot/all-trades`, {
-      headers: {
-        Authorization: `Bearer A.saboor786`
-      }
+      headers: { Authorization: `Bearer A.saboor786` }
     });
 
     const allTrades = res.data;
 
-    // Get today's date in PKT
+    // Get today's PKT date string (like "2025-07-15")
     const now = new Date();
     const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-    const todayStr = pkNow.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const todayStr = pkNow.toISOString().slice(0, 10);
 
-    // Filter and sort today's trades by tradeNumber
+    // Filter only today's trades
     const todaysTrades = allTrades
-      .filter(trade => {
-        const tradeDate = new Date(trade.time).toISOString().slice(0, 10);
-        return tradeDate === todayStr;
-      })
-      .sort((a, b) => a.tradeNumber - b.tradeNumber); // Sort by tradeNumber ascending
+      .filter(trade => new Date(trade.time).toISOString().slice(0, 10) === todayStr)
+      .sort((a, b) => a.tradeNumber - b.tradeNumber); // Ensure correct order
 
+      console.log(`Today Trades : ${todaysTrades}`);
+      
+
+    // Cumulative equity calculation
     let equity = 0;
-    let lowestEquity = 0;
+    let minEquity = 0;
 
     for (const trade of todaysTrades) {
       const profit = parseFloat(trade.profit) || 0;
       equity += profit;
-      lowestEquity = Math.min(lowestEquity, equity); // Track lowest balance point
+      minEquity = Math.min(minEquity, equity); // Track lowest point
     }
 
-    const maxDrawdown = Math.abs(lowestEquity);
+    const drawdown = Math.abs(minEquity); // Drawdown from 0
 
-    console.log(`📉 Max Drawdown from Start of ${todayStr}: $${maxDrawdown.toFixed(2)}`);
-
-    return maxDrawdown >= maxDrawdownLimit;
+    console.log(`📉 Max Drawdown from Start of ${todayStr}: $${drawdown.toFixed(2)}`);
+    return drawdown >= maxDrawdownLimit;
 
   } catch (err) {
     console.error("❌ Error in isMaxDrawdownHit:", err.message);
