@@ -236,8 +236,9 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
       .filter(trade => new Date(trade.time).toISOString().slice(0, 10) === todayStr)
       .sort((a, b) => a.tradeNumber - b.tradeNumber); // Ensure correct order
 
-      console.log(`Today Trades : ${todaysTrades}`);
-      
+    console.log(`Today Trades : ${JSON.stringify(todaysTrades, null, 2)}`);
+
+
 
     // Cumulative equity calculation
     let equity = 0;
