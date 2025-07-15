@@ -226,19 +226,22 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
 
     const allTrades = res.data;
 
-    // Get today's PKT date string (like "2025-07-15")
+    // Get today’s PKT date string (like "2025-07-15")
     const now = new Date();
     const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
     const todayStr = pkNow.toISOString().slice(0, 10);
 
-    // Filter only today's trades
+    // Filter today's trades using PKT-based trade time
     const todaysTrades = allTrades
-      .filter(trade => new Date(trade.time).toISOString().slice(0, 10) === todayStr)
-      .sort((a, b) => a.tradeNumber - b.tradeNumber); // Ensure correct order
+      .filter(trade => {
+        const tradeDate = new Date(new Date(trade.time).getTime() + 5 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10);
+        return tradeDate === todayStr;
+      })
+      .sort((a, b) => a.tradeNumber - b.tradeNumber); // Sort ascending
 
     console.log(`Today Trades : ${JSON.stringify(todaysTrades, null, 2)}`);
-
-
 
     // Cumulative equity calculation
     let equity = 0;
@@ -247,11 +250,10 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
     for (const trade of todaysTrades) {
       const profit = parseFloat(trade.profit) || 0;
       equity += profit;
-      minEquity = Math.min(minEquity, equity); // Track lowest point
+      minEquity = Math.min(minEquity, equity);
     }
 
-    const drawdown = Math.abs(minEquity); // Drawdown from 0
-
+    const drawdown = Math.abs(minEquity);
     console.log(`📉 Max Drawdown from Start of ${todayStr}: $${drawdown.toFixed(2)}`);
     return drawdown >= maxDrawdownLimit;
 
