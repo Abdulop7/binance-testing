@@ -302,6 +302,11 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
+    let trialPrice = await getLatestPrice()
+    let caculatedAtr = await getATRFromPrice(trialPrice)
+
+    console.log(`Calculated Atr is : ${caculatedAtr}`);
+    
 
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
@@ -339,6 +344,10 @@ async function checkSignal() {
     console.error(`❌ Check Signal Error: ${msg}`);
   }
 
+}
+
+function getATRFromPrice(price) {
+  return 30 * price - 30;
 }
 
 async function startLoop() {
