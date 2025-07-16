@@ -153,7 +153,7 @@ async function placeOrder(signal) {
     console.log(`Atr is ${atr}`);
 
 
-    if (atr < 0.006) {
+    if (atr < 0.009) {
       console.log(`⛔ ATR too low at ${atr} — skipping trade.`);
     }
     else {
