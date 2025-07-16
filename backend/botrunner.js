@@ -348,7 +348,7 @@ async function checkSignal() {
 }
 
 function getATRFromPrice(price) {
-  return 0.003 * price - 0.003;
+  return 0.004 * price - 0.006;
 }
 
 async function startLoop() {
