@@ -152,9 +152,13 @@ async function placeOrder(signal) {
 
     console.log(`Atr is ${atr}`);
 
+    let trialPrice = await getLatestPrice()
+    let atrRes = await getATRFromPrice(trialPrice)
+    let calculatedAtr = Number(atrRes.toFixed(4))
 
-    if (atr < 0.009) {
-      console.log(`⛔ ATR too low at ${atr} — skipping trade.`);
+
+    if (atr < calculatedAtr) {
+      console.log(`⛔ ATR too low at ${atr} and it Should be ${calculatedAtr} — skipping trade.`);
     }
     else {
 
@@ -302,11 +306,7 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
-    let trialPrice = await getLatestPrice()
-    let atr = await getATRFromPrice(trialPrice)
-    let calculatedAtr = Number(atr.toFixed(4))
-
-    console.log(`Calculated Atr is : ${calculatedAtr}`);
+    
     
 
 
