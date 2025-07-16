@@ -303,9 +303,10 @@ async function checkSignal() {
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
     let trialPrice = await getLatestPrice()
-    let caculatedAtr = await getATRFromPrice(trialPrice)
+    let atr = await getATRFromPrice(trialPrice)
+    let calculatedAtr = Number(atr.toFixed(4))
 
-    console.log(`Calculated Atr is : ${caculatedAtr}`);
+    console.log(`Calculated Atr is : ${calculatedAtr}`);
     
 
 
@@ -347,7 +348,7 @@ async function checkSignal() {
 }
 
 function getATRFromPrice(price) {
-  return 30 * price - 30;
+  return 0.003 * price - 0.003;
 }
 
 async function startLoop() {
