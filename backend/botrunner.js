@@ -306,9 +306,9 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
-    let demo = getATRFromPrice(4)
     
-    console.log(`Our new ATr is ${demo}`);
+    console.log(`Our new ATr at 4 is ${getATRFromPrice(4)}`);
+    console.log(`Our new ATr at 3 is ${getATRFromPrice(3)}`);
     
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
@@ -349,8 +349,8 @@ async function checkSignal() {
 }
 
 function getATRFromPrice(price) {
-  const k = 0.0003448;
-  const n = 2.63;
+  const k = 0.000571;  // recalculated constant
+  const n = 2.26;      // recalculated exponent
   return +(k * Math.pow(price, n)).toFixed(4);
 }
 
