@@ -6,10 +6,18 @@ app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 const port = process.env.PORT || 10000; // ✅ right
+const mongoose = require("mongoose");
+const BotRouter = require('./app/routes/botRoutes.js');
+const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal } = require('./botrunner.js');
+const { startPriceSocket, startCandleSocket, prefillCandles } = require('./binanceWebSocket.js');
 
 
 
 app.use((req, res, next) => {
+  // Skip authentication for /bot/status
+  if (req.path === "/bot/status") {
+    return next();
+  }
 
   const authHeader = req.headers['authorization'];
   const token = authHeader?.split(" ")[1];
@@ -23,10 +31,6 @@ app.use((req, res, next) => {
 });
 
 
-const mongoose = require("mongoose");
-const BotRouter = require('./app/routes/botRoutes.js');
-const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal } = require('./botrunner.js');
-const { startPriceSocket, startCandleSocket, prefillCandles } = require('./binanceWebSocket.js');
 
 app.use("/bot", BotRouter)
 

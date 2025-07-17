@@ -153,12 +153,12 @@ async function placeOrder(signal) {
     console.log(`Atr is ${atr}`);
 
     let trialPrice = await getLatestPrice()
-    let atrRes = await getATRFromPrice(trialPrice)
-    let calculatedAtr = Number(atrRes.toFixed(4))
+    const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0140);
+    let ExpAtr = getATRFromPrice(trialPrice)
 
 
-    if (atr < calculatedAtr) {
-      console.log(`⛔ ATR too low at ${atr} and it Should be ${calculatedAtr} — skipping trade.`);
+    if (atr < ExpAtr) {
+      console.log(`⛔ ATR too low at ${atr} and it Should be ${ExpAtr} — skipping trade.`);
     }
     else {
 
@@ -306,12 +306,6 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
-    const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0140);
-    
-    console.log(`Our new ATr at 3 is ${getATRFromPrice(3)}`);
-    console.log(`Our new ATr at 4 is ${getATRFromPrice(4)}`);
-    console.log(`Our new ATr at 5 is ${getATRFromPrice(5)}`);
-    
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;
