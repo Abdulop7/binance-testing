@@ -306,9 +306,11 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
+    const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0140);
     
-    console.log(`Our new ATr at 4 is ${getATRFromPrice(4)}`);
     console.log(`Our new ATr at 3 is ${getATRFromPrice(3)}`);
+    console.log(`Our new ATr at 4 is ${getATRFromPrice(4)}`);
+    console.log(`Our new ATr at 5 is ${getATRFromPrice(5)}`);
     
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
@@ -348,10 +350,13 @@ async function checkSignal() {
 
 }
 
-function getATRFromPrice(price) {
-  const k = 0.000571;  // recalculated constant
-  const n = 2.26;      // recalculated exponent
-  return +(k * Math.pow(price, n)).toFixed(4);
+function createATRCalculator(price1, atr1, price2, atr2) {
+  const n = Math.log(atr2 / atr1) / Math.log(price2 / price1);
+  const k = atr1 / Math.pow(price1, n);
+
+  return function(price) {
+    return +(k * Math.pow(price, n)).toFixed(4);
+  };
 }
 
 async function startLoop() {
