@@ -306,13 +306,13 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
-    const tpFn = createTPCalculator(3.00, 0.05, 4.00, 0.085); // 5% at $3 → 8.5% at $4
-    const slFn = createSLCalculator(3.00, 0.008, 4.00, 0.12); // 0.8% at $3 → 12% at $4
+    const tpFn = createTPCalculator(3.00, 0.005, 4.00, 0.0085); // 0.5% to 0.85%
+    const slFn = createSLCalculator(3.00, 0.008, 4.00, 0.012);  // 0.8% to 1.2%
 
     console.log(`Tp at 3.00$ is ${tpFn(3)} and Sl is ${slFn(3)}`);
     console.log(`Tp at 4.00$ is ${tpFn(4)} and Sl is ${slFn(4)}`);
     console.log(`Tp at 5.00$ is ${tpFn(5)} and Sl is ${slFn(5)}`);
-    
+
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;
@@ -361,25 +361,19 @@ function createATRCalculator(price1, atr1, price2, atr2) {
 }
 
 function createTPCalculator(price1, tp1, price2, tp2) {
-  // tp1, tp2 in DECIMAL (e.g., 5% => 0.05)
-  const n = Math.log(tp2 / tp1) / Math.log(price2 / price1);
-  const k = tp1 / Math.pow(price1, n);
-
-  return function (price) {
-    return +(k * Math.pow(price, n)).toFixed(6); // decimal form
+  const slope = (tp2 - tp1) / (price2 - price1);
+  return function(price) {
+    return +(tp1 + slope * (price - price1)).toFixed(6);
   };
 }
+
 
 function createSLCalculator(price1, sl1, price2, sl2) {
-  // sl1, sl2 in DECIMAL (e.g., 0.8% => 0.008)
-  const n = Math.log(sl2 / sl1) / Math.log(price2 / price1);
-  const k = sl1 / Math.pow(price1, n);
-
-  return function (price) {
-    return +(k * Math.pow(price, n)).toFixed(6); // decimal form
+  const slope = (sl2 - sl1) / (price2 - price1);
+  return function(price) {
+    return +(sl1 + slope * (price - price1)).toFixed(6);
   };
 }
-
 
 async function startLoop() {
   await getBalance();
