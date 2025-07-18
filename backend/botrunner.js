@@ -216,11 +216,13 @@ async function placeOrder(signal) {
 async function getBalance() {
 
   const balanceData = await futuresGetSigned('/fapi/v2/account');
-
   let availableBalance = parseFloat(balanceData.availableBalance);
+  
+  const currentPrice = await getLatestPrice(); // ✅ fetch current price
+  const dynamicPct = positionSizeFn(currentPrice); // dynamically calculate percentage
 
   // Use 98% of available balance
-  let usableBalance = availableBalance * 0.75;
+  let usableBalance = availableBalance * dynamicPct;
 
   // Round down and ensure safe default for very high balances
   usableBalance = (usableBalance >= 100) ? 100 : usableBalance;
@@ -314,11 +316,6 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
-    
-    console.log(`Balance Percent at 3$ is ${positionSizeFn(3)}`);
-    console.log(`Balance Percent at 4$ is ${positionSizeFn(4)}`);
-    console.log(`Balance Percent at 5$ is ${positionSizeFn(5)}`);
-    
 
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
@@ -390,7 +387,7 @@ function createSLCalculator(price1, sl1, price2, sl2) {
   };
 }
 
-async function setTpSl(){
+async function setTpSl() {
   try {
     const resp = await axios.get(`${process.env.backendURL}/bot/get-trade`, {
       headers: { Authorization: `Bearer A.saboor786` }
@@ -416,7 +413,7 @@ async function setTpSl(){
 
     console.log(
       `🎯 currentTP/currentSL set from active trade entry=${entry}: ` +
-      `TP=${(tpPctDec*100).toFixed(3)}% SL=${(slPctDec*100).toFixed(3)}%`
+      `TP=${(tpPctDec * 100).toFixed(3)}% SL=${(slPctDec * 100).toFixed(3)}%`
     );
 
     return { ok: true, entryPrice: entry, tpPctDec, slPctDec };
