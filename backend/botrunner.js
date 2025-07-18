@@ -70,6 +70,11 @@ let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
 let currentBalance = 0
+const tpFn = createTPCalculator(3.00, 0.005, 4.00, 0.0085); // 0.5% to 0.85%
+const slFn = createSLCalculator(3.00, 0.008, 4.00, 0.012);  // 0.8% to 1.2%
+const positionSizeFn = createPositionSizeCalculator(3.00, 0.98, 4.00, 0.75); // 98% → 75%
+let currentTP = 0
+let currentSL = 0
 
 async function isPausedDueToNews() {
   try {
@@ -152,9 +157,9 @@ async function placeOrder(signal) {
 
     console.log(`Atr is ${atr}`);
 
-    let trialPrice = await getLatestPrice()
+    let LatestPrice = await getLatestPrice()
     const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0140);
-    let ExpAtr = getATRFromPrice(trialPrice)
+    let ExpAtr = getATRFromPrice(LatestPrice)
 
 
     if (atr < ExpAtr) {
@@ -166,6 +171,9 @@ async function placeOrder(signal) {
 
 
       const entryPrice = await getPrice();
+
+      currentTP = tpFn(entryPrice)
+      currentSL = slFn(entryPrice)
 
       const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
@@ -306,12 +314,11 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
-    const tpFn = createTPCalculator(3.00, 0.005, 4.00, 0.0085); // 0.5% to 0.85%
-    const slFn = createSLCalculator(3.00, 0.008, 4.00, 0.012);  // 0.8% to 1.2%
-
-    console.log(`Tp at 3.00$ is ${tpFn(3)} and Sl is ${slFn(3)}`);
-    console.log(`Tp at 4.00$ is ${tpFn(4)} and Sl is ${slFn(4)}`);
-    console.log(`Tp at 5.00$ is ${tpFn(5)} and Sl is ${slFn(5)}`);
+    
+    console.log(`Balance Percent at 3$ is ${positionSizeFn(3)}`);
+    console.log(`Balance Percent at 4$ is ${positionSizeFn(4)}`);
+    console.log(`Balance Percent at 5$ is ${positionSizeFn(5)}`);
+    
 
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
@@ -351,6 +358,14 @@ async function checkSignal() {
 
 }
 
+function createPositionSizeCalculator(price1, pct1, price2, pct2) {
+  const slope = (pct2 - pct1) / (price2 - price1);
+  return function (price) {
+    return +(pct1 + slope * (price - price1));
+  };
+}
+
+
 function createATRCalculator(price1, atr1, price2, atr2) {
   const n = Math.log(atr2 / atr1) / Math.log(price2 / price1);
   const k = atr1 / Math.pow(price1, n);
@@ -362,17 +377,57 @@ function createATRCalculator(price1, atr1, price2, atr2) {
 
 function createTPCalculator(price1, tp1, price2, tp2) {
   const slope = (tp2 - tp1) / (price2 - price1);
-  return function(price) {
-    return +(tp1 + slope * (price - price1)).toFixed(6);
+  return function (price) {
+    return +(tp1 + slope * (price - price1)).toFixed(4);
   };
 }
 
 
 function createSLCalculator(price1, sl1, price2, sl2) {
   const slope = (sl2 - sl1) / (price2 - price1);
-  return function(price) {
-    return +(sl1 + slope * (price - price1)).toFixed(6);
+  return function (price) {
+    return +(sl1 + slope * (price - price1)).toFixed(4);
   };
+}
+
+async function setTpSl(){
+  try {
+    const resp = await axios.get(`${process.env.backendURL}/bot/get-trade`, {
+      headers: { Authorization: `Bearer A.saboor786` }
+    });
+
+    const trade = resp?.data;
+    if (!trade || trade.entryPrice == null) {
+      console.log("ℹ️ No active trade found to set TP/SL.");
+      return { ok: false, msg: "no-trade" };
+    }
+
+    const entry = Number(trade.entryPrice);
+    if (!Number.isFinite(entry) || entry <= 0) {
+      console.error("❌ Invalid entryPrice in active trade:", trade.entryPrice);
+      return { ok: false, msg: "bad-entry" };
+    }
+
+    const tpPctDec = tpFn(entry); // decimal (e.g., 0.006 = 0.6%)
+    const slPctDec = slFn(entry); // decimal
+
+    currentTP = tpPctDec;
+    currentSL = slPctDec;
+
+    console.log(
+      `🎯 currentTP/currentSL set from active trade entry=${entry}: ` +
+      `TP=${(tpPctDec*100).toFixed(3)}% SL=${(slPctDec*100).toFixed(3)}%`
+    );
+
+    return { ok: true, entryPrice: entry, tpPctDec, slPctDec };
+  } catch (err) {
+    if (err?.response?.status === 404) {
+      console.log("ℹ️ No active trade (404) — TP/SL not set.");
+      return { ok: false, msg: "no-trade" };
+    }
+    console.error("❌ setCurrentTPSLFromActiveTrade error:", err.message);
+    return { ok: false, msg: "error" };
+  }
 }
 
 async function startLoop() {
@@ -512,10 +567,10 @@ async function checkTPorSL(lastSignal) {
       const currentPrice = await getPrice();
 
       // Set TP and check SL
-      const tp = type === "BUY" ? entryPrice * 1.005 : entryPrice * 0.995;
+      const tp = type === "BUY" ? entryPrice * (1 + currentTP) : entryPrice * (1 - currentTP);
       const softSL = type === "BUY"
-        ? entryPrice * 0.992  // ~0.8% below for BUY
-        : entryPrice * 1.008; // ~0.8% above for SELL
+        ? entryPrice * (1 - currentSL)  // ~0.8% below for BUY
+        : entryPrice * (1 + currentSL); // ~0.8% above for SELL
 
       const slBroken = await isSLBroken(type);
 
@@ -774,6 +829,6 @@ module.exports = {
   getFuturesBalance,
   getBalance,
   calculateEmaSignal,
-  // fetchCandles,
+  setTpSl,
   getPrice
 };
