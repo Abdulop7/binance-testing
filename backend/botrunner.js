@@ -158,7 +158,7 @@ async function placeOrder(signal) {
     console.log(`Atr is ${atr}`);
 
     let LatestPrice = await getLatestPrice()
-    const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0140);
+    const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0120);
     let ExpAtr = getATRFromPrice(LatestPrice)
 
 
@@ -428,14 +428,7 @@ async function setTpSl() {
 }
 
 async function startLoop() {
-
-  const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0120);
-  console.log(`Atr at 3$ is ${getATRFromPrice(3)}`);
-  console.log(`Atr at 4$ is ${getATRFromPrice(4)}`);
-  console.log(`Atr at 5$ is ${getATRFromPrice(5)}`);
   
-
-
   await getBalance();
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
