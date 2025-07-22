@@ -162,7 +162,7 @@ async function placeOrder(signal) {
     let ExpAtr = getATRFromPrice(LatestPrice)
     let endAtr= ExpAtr + 0.0025
 
-    if (atr < ExpAtr && atr >= endAtr ) {
+    if (atr < ExpAtr || atr > endAtr ) {
       console.log(`⛔ ATR is at ${atr} and it Should be between ${ExpAtr} to ${endAtr} — skipping trade.`);
     }
     else {
