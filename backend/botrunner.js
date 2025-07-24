@@ -158,9 +158,9 @@ async function placeOrder(signal) {
     console.log(`Atr is ${atr}`);
 
     let LatestPrice = await getLatestPrice()
-    const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0125);
+    const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0110);
     let ExpAtr = getATRFromPrice(LatestPrice)
-    let endAtr= ExpAtr + 0.0025
+    let endAtr= ExpAtr + 0.0040
 
     if (atr < ExpAtr && atr >= endAtr ) {
       console.log(`⛔ ATR is at ${atr} and it Should be between ${ExpAtr} to ${endAtr} — skipping trade.`);
