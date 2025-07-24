@@ -85,7 +85,7 @@ mongoose.connect(process.env.DbUrl).then(() => {
               
             } 
           }catch(e){
-            console.log(`No Active Trade Found`);
+            console.log(`⚠️ No Active Trade Found`);
             
           }
             
