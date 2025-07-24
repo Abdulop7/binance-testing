@@ -8,7 +8,7 @@ app.use(express.urlencoded({ extended: true }));
 const port = process.env.PORT || 10000; // ✅ right
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
-const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal, setTpSl } = require('./botrunner.js');
+const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal, setTpSl, setLastTradeSignal } = require('./botrunner.js');
 const { startPriceSocket, startCandleSocket, prefillCandles } = require('./binanceWebSocket.js');
 
 
@@ -62,6 +62,33 @@ mongoose.connect(process.env.DbUrl).then(() => {
 
           initTradeCount();
           setTpSl();
+
+
+          try{
+
+            // Get the active trade data from the backend
+            const tradeRes = await axios.get(`${process.env.backendURL}/bot/get-trade`,
+              {
+                headers: {
+                  Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+                }
+              }); // WebUrl here 
+              
+              
+              if (tradeRes){
+
+              const {type} = tradeRes.data;
+              
+              setLastTradeSignal(type);
+
+              console.log(`Last Trade Signal Set to : ${type}`);
+              
+            } 
+          }catch(e){
+            console.log(`No Active Trade Found`);
+            
+          }
+            
 
           const now = new Date();
           const minutes = now.getMinutes();

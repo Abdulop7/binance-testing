@@ -75,6 +75,14 @@ const slFn = createSLCalculator(3.00, 0.008, 4.00, 0.012);  // 0.8% to 1.2%
 const positionSizeFn = createPositionSizeCalculator(3.00, 0.98, 4.00, 0.75); // 98% → 75%
 let currentTP = 0
 let currentSL = 0
+let lastTradeSignal = null
+
+
+async function setLastTradeSignal(signal){
+
+  lastTradeSignal = signal;
+
+}
 
 async function isPausedDueToNews() {
   try {
@@ -187,6 +195,8 @@ async function placeOrder(signal) {
 
       console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
 
+      lastTradeSignal = signal;
+
 
       await axios.post(`${process.env.backendURL}/bot/save-trade`, { // WebUrl Here
         signal: signal,
@@ -288,7 +298,7 @@ async function signalChanged(newSignal, restStatus) {
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
 
-  } else if (!inTrade) {
+  } else if (!inTrade || newSignal != lastTradeSignal) {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
@@ -828,5 +838,6 @@ module.exports = {
   getBalance,
   calculateEmaSignal,
   setTpSl,
-  getPrice
+  getPrice,
+  setLastTradeSignal
 };
