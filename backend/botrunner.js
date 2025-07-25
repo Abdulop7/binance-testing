@@ -476,6 +476,7 @@ async function stopLoop() {
     clearInterval(intervalRef);
     intervalRef = null;
     lastSignal = null;
+    lastTradeSignal = null;
 
     const res = await axios.get(`${process.env.backendURL}/bot/get-trade`,
       {
@@ -667,7 +668,7 @@ async function checkTPorSL(lastSignal) {
 
         console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
 
-        lastTradeSignal = null
+        lastTradeSignal = null;
       }
     }
   } catch (err) {
