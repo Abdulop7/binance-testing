@@ -78,7 +78,7 @@ let currentSL = 0
 let lastTradeSignal = null
 
 
-async function setLastTradeSignal(signal){
+async function setLastTradeSignal(signal) {
 
   lastTradeSignal = signal;
 
@@ -168,9 +168,9 @@ async function placeOrder(signal) {
     let LatestPrice = await getLatestPrice()
     const getATRFromPrice = createATRCalculator(3, 0.0060, 4, 0.0110);
     let ExpAtr = getATRFromPrice(LatestPrice)
-    let endAtr= ExpAtr + 0.0040
+    let endAtr = ExpAtr + 0.0040
 
-    if (atr < ExpAtr || atr > endAtr ) {
+    if (atr < ExpAtr || atr > endAtr) {
       console.log(`⛔ ATR is at ${atr} and it Should be between ${ExpAtr} to ${endAtr} — skipping trade.`);
     }
     else {
@@ -228,20 +228,20 @@ async function getBalance() {
   const balanceData = await futuresGetSigned('/fapi/v2/account');
   let availableBalance = parseFloat(balanceData.availableBalance);
 
-  if(availableBalance < 75){
+  if (availableBalance < 75) {
 
     availableBalance = availableBalance * 0.75
 
-  }else if (availableBalance < 50){
+  } else if (availableBalance < 50) {
 
     availableBalance = availableBalance * 0.5
 
-  }else if(availableBalance < 25){
+  } else if (availableBalance < 25) {
 
     availableBalance = availableBalance * 0.25
 
   }
-  
+
   const currentPrice = await getLatestPrice(); // ✅ fetch current price
   const dynamicPct = positionSizeFn(currentPrice); // dynamically calculate percentage
 
@@ -312,7 +312,7 @@ async function signalChanged(newSignal, restStatus) {
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
 
-  } else if (!inTrade || newSignal != lastTradeSignal) {
+  } else if (!inTrade) {
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
@@ -323,7 +323,19 @@ async function signalChanged(newSignal, restStatus) {
       await placeOrder(newSignal);
     }
 
-  } else if (inTrade) {
+  } else if (inTrade && newSignal != lastTradeSignal) {
+    console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
+    lastSignal = newSignal;
+    await updateBotStatus(true, newSignal, inTrade);
+
+    if (restStatus) {
+      console.log('Bot is in Rest. Cant open Trade');
+    } else {
+      await placeOrder(newSignal);
+    }
+
+  }
+  else if (inTrade) {
     console.log(`Signal is ${newSignal}. But it is Already in Trade`);
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
@@ -452,7 +464,7 @@ async function setTpSl() {
 }
 
 async function startLoop() {
-  
+
   await getBalance();
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
