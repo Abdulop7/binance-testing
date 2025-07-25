@@ -666,6 +666,8 @@ async function checkTPorSL(lastSignal) {
         await getBalance();
 
         console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
+
+        lastTradeSignal = null
       }
     }
   } catch (err) {
