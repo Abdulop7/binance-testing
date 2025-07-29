@@ -167,7 +167,8 @@ async function placeOrder(signal) {
 
     let LatestPrice = await getLatestPrice()
     const getATRFromPrice = createATRCalculator(3, 0.0070, 4, 0.0120);
-    let ExpAtr = getATRFromPrice(LatestPrice)
+    let atrRes = getATRFromPrice(LatestPrice)
+    let ExpAtr = parseFloat(atrRes.toFixed(4))  
     let endAtr = ExpAtr + 0.0040
 
     if (atr < ExpAtr || atr > endAtr) {
