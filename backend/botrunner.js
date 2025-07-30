@@ -150,7 +150,7 @@ async function getBotStatusFromDB() {
   }
 }
 
-async function placeOrder(signal) {
+async function placeOrder(signal,ema200) {
   try {
     let leverage = 10
     const positionSizeUSD = currentBalance;
@@ -171,8 +171,12 @@ async function placeOrder(signal) {
     let ExpAtr = parseFloat(atrRes.toFixed(4))  
     let endAtr = ExpAtr + 0.0040
 
+    const pctAway = Math.abs((LatestPrice - ema200) / ema200);
+
     if (atr < ExpAtr || atr > endAtr) {
       console.log(`⛔ ATR is at ${atr} and it Should be between ${ExpAtr} to ${endAtr} — skipping trade.`);
+    }else if(pctAway > 0.0085){
+       console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade.`);
     }
     else {
 
@@ -301,7 +305,7 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
 }
 
 
-async function signalChanged(newSignal, restStatus) {
+async function signalChanged(newSignal, restStatus,ema200) {
 
   const { inTrade } = await getBotStatusFromDB();
 
@@ -321,7 +325,7 @@ async function signalChanged(newSignal, restStatus) {
     if (restStatus) {
       console.log('Bot is in Rest. Cant open Trade');
     } else {
-      await placeOrder(newSignal);
+      await placeOrder(newSignal,ema200);
     }
 
   } else if (inTrade && newSignal != lastTradeSignal) {
@@ -366,6 +370,7 @@ async function checkSignal() {
 
     let res = await calculateEmaSignal()
     const newSignal = res.msg.signal;
+    const ema200 = parseFloat(res.msg.ema200.toFixed(4));
 
     if (newSignal == undefined) {
 
@@ -373,7 +378,7 @@ async function checkSignal() {
 
     } else if (newSignal !== lastSignal) {
 
-      await signalChanged(newSignal, finalRest);
+      await signalChanged(newSignal, finalRest,ema200);
     }
     else {
 
@@ -465,17 +470,6 @@ async function setTpSl() {
 }
 
 async function startLoop() {
-
-  const emaRes = await axios.get(`${process.env.backendURL}/bot/ema`, {
-  headers: {
-    Authorization: `Bearer A.saboor786`
-  }
-});
-const ema200 = parseFloat(emaRes.data.msg.ema200.toFixed(4));
-const currentPrice = await getPrice();
-const pctAway = Math.abs((currentPrice - ema200) / ema200);
-
-console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade. and is Price Far = ${pctAway > 0.009} and is price close = ${pctAway < 0.009}`);
 
   await getBalance();
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
