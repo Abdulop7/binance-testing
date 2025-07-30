@@ -471,7 +471,7 @@ async function startLoop() {
     Authorization: `Bearer A.saboor786`
   }
 });
-const ema200 = parseFloat(emaRes.data.msg.ema200);
+const ema200 = parseFloat(emaRes.data.msg.ema200.toFixed(4));
 const currentPrice = await getPrice();
 const pctAway = Math.abs((currentPrice - ema200) / ema200);
 
