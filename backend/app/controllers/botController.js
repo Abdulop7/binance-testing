@@ -407,8 +407,13 @@ async function SaveHistory(req, res) {
 
 async function AllTrades(req, res) {
 
-    let trades = await TradeHistory.find().sort({ createdAt: -1 })
+    let trades = await getAllTrades();
     res.json(trades)
+}
+
+async function getAllTrades(){
+    let trades = await TradeHistory.find().sort({ createdAt: -1 })
+    return trades;
 }
 
 async function TradeNumber(req, res) {
@@ -457,8 +462,13 @@ async function addNewsEvent(req, res) {
 }
 
 async function showNews(req, res) {
-    const newsEvents = await NewsEvent.find().sort({ date: 1 }); // Optional: filter for future only
+    const newsEvents = await getNewsDirectly()
     res.json(newsEvents);
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews }
+async function getNewsDirectly(){
+    let newsEvents = await NewsEvent.find().sort({ date: 1 }); // Optional: filter for future only
+    return newsEvents;
+}
+
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, getAllTrades,getNewsDirectly }
