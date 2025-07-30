@@ -3,7 +3,6 @@ const crypto = require('crypto');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
 const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
-const { getAllTrades } = require("./app/controllers/botController");
 
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
 // Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
@@ -87,7 +86,13 @@ async function setLastTradeSignal(signal) {
 
 async function isPausedDueToNews() {
   try {
-    const events = await getNewsDirectly();
+    const res = await axios.get(`${process.env.backendURL}/bot/show-news`,
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      }); // Replace with your news fetch URL
+    const events = res.data;
 
     const now = new Date();
 
@@ -258,8 +263,11 @@ async function getBalance() {
 
 async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
   try {
+    const res = await axios.get(`${process.env.backendURL}/bot/all-trades`, {
+      headers: { Authorization: `Bearer A.saboor786` }
+    });
 
-    const allTrades = await getAllTrades();
+    const allTrades = res.data;
 
     // Get today’s PKT date string (like "2025-07-15")
     const now = new Date();
