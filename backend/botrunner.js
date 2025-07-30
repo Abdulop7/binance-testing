@@ -329,6 +329,7 @@ async function signalChanged(newSignal, restStatus,ema200) {
     }
 
   } else if (inTrade && newSignal != lastTradeSignal) {
+    await checkTPorSL(newSignal)
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
