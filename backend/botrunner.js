@@ -466,6 +466,17 @@ async function setTpSl() {
 
 async function startLoop() {
 
+  const emaRes = await axios.get(`${process.env.backendURL}/bot/ema`, {
+  headers: {
+    Authorization: `Bearer A.saboor786`
+  }
+});
+const ema200 = parseFloat(emaRes.data.msg.ema200);
+const currentPrice = await getPrice();
+const pctAway = Math.abs((currentPrice - ema200) / ema200);
+
+console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade. and is Price Far = ${pctAway > 0.009} and is price close = ${pctAway < 0.009}`);
+
   await getBalance();
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
