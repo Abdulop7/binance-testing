@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm install -g pm2 && npm install
 
 # Copy the rest of the backend files
 COPY . .
@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 5000
 
 # Start the server
-CMD ["node", "index.js"]
+CMD ["pm2-runtime", "index.js"]

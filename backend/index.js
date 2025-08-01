@@ -117,3 +117,12 @@ mongoose.connect(process.env.DbUrl).then(() => {
   });
 });
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🧨 Unhandled Rejection:', reason);
+  process.exit(1); // PM2 will restart
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('💥 Uncaught Exception:', err);
+  process.exit(1); // PM2 will restart
+});
