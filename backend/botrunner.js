@@ -175,9 +175,10 @@ async function placeOrder(signal,ema200) {
 
     if (atr < ExpAtr || atr > endAtr) {
       console.log(`⛔ ATR is at ${atr} and it Should be between ${ExpAtr} to ${endAtr} — skipping trade.`);
-    }else if(pctAway > 0.0085){
-       console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade.`);
     }
+    // else if(pctAway > 0.0085){
+    //    console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade.`);
+    // }
     else {
 
       await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
@@ -233,19 +234,21 @@ async function getBalance() {
   const balanceData = await futuresGetSigned('/fapi/v2/account');
   let availableBalance = parseFloat(balanceData.availableBalance);
 
-  if (availableBalance < 75) {
+  // if (availableBalance < 75) {
 
-    availableBalance = availableBalance * 0.75
+  //   availableBalance = availableBalance * 0.75
 
-  } else if (availableBalance < 50) {
+  // } else if (availableBalance < 50) {
 
-    availableBalance = availableBalance * 0.5
+  //   availableBalance = availableBalance * 0.5
 
-  } else if (availableBalance < 25) {
+  // } else if (availableBalance < 25) {
 
-    availableBalance = availableBalance * 0.25
+  //   availableBalance = availableBalance * 0.25
 
-  }
+  // }
+
+  availableBalance = availableBalance * 0.5
 
   const currentPrice = await getLatestPrice(); // ✅ fetch current price
   const dynamicPct = positionSizeFn(currentPrice); // dynamically calculate percentage
