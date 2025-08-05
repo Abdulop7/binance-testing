@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 5000
 
 # Start the server
-CMD ["pm2-runtime", "index.js"]
+CMD ["pm2-runtime", "ecosystem.config.js"]
