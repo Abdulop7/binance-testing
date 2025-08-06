@@ -28,10 +28,10 @@ async function calculateEmaSignal() {
       return { status: 0, msg: "Invalid or insufficient candle data" };
     }
 
-    const ema9 = EMA.calculate({ period: 8, values: data });
+    const ema9 = EMA.calculate({ period: 5, values: data });
     const ema21 = EMA.calculate({ period: 13, values: data });
-    const ema50 = EMA.calculate({ period: 21, values: data });
-    const ema200 = EMA.calculate({ period: 55, values: data });
+    const ema50 = EMA.calculate({ period: 34, values: data });
+    const ema200 = EMA.calculate({ period: 89, values: data });
 
     const last9 = ema9[ema9.length - 1];
     const last21 = ema21[ema21.length - 1];
