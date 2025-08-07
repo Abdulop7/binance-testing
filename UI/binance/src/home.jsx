@@ -33,9 +33,19 @@ export default function Home() {
     }
     }
     catch(err){
+      console.log(err);
       
     } 
-    // Get balance
+    
+
+  }
+
+  useEffect(() => {
+    fetchStatus()
+  }, [])
+
+  async function getBalance(){
+
     const balanceRes = await axios.get("https://binance-backend-try.onrender.com/bot/get-balance",
             {
                 headers: {
@@ -48,15 +58,12 @@ export default function Home() {
 
   }
 
-  useEffect(() => {
-    fetchStatus()
-  }, [])
-
   return (
     <>
       <Header />
       <div className='main'>
         <div className="home-div">
+          <button onClick={getBalance}>Get Balance</button>
           <div className="balance-card">
             <div className="balance-stat">
               <h1>Current Balance : </h1>
