@@ -7,6 +7,6 @@ module.exports = {
     restart_delay: 1000,
     max_restarts: 10,
     exp_backoff_restart_delay: 100,
-    stop_exit_codes: [1] // Will stop only if exit code is 1
+    stop_exit_codes: [] // Will stop only if exit code is 1
   }]
 }
