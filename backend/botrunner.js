@@ -71,7 +71,6 @@ let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
 let currentBalance = 0
 const tpFn = createTPCalculator(3.00, 0.005, 4.00, 0.0085); // 0.5% to 0.85%
-const slFn = createSLCalculator(3.00, 0.008, 4.00, 0.012);  // 0.8% to 1.2%
 const positionSizeFn = createPositionSizeCalculator(3.00, 0.98, 4.00, 0.75); // 98% → 75%
 let currentTP = 0
 let currentSL = 0
@@ -83,7 +82,6 @@ async function setLastTradeSignal(signal) {
   lastTradeSignal = signal;
 
 }
-
 async function isPausedDueToNews() {
   try {
     const res = await axios.get(`${process.env.backendURL}/bot/show-news`,
@@ -187,7 +185,7 @@ async function placeOrder(signal,ema200) {
       const entryPrice = await getPrice();
 
       currentTP = tpFn(entryPrice)
-      currentSL = slFn(entryPrice)
+      currentSL = getSL(atr)
 
       const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
@@ -208,6 +206,7 @@ async function placeOrder(signal,ema200) {
         signal: signal,
         time: pakTime.toISOString(), // Saved in ISO format but in PKT
         price: entryPrice,
+        atr: atr,
         positionSize: pairQuantity,
         positionSizeUSD: positionSizeUSD,
         leverage: leverage,
@@ -425,12 +424,9 @@ function createTPCalculator(price1, tp1, price2, tp2) {
   };
 }
 
-
-function createSLCalculator(price1, sl1, price2, sl2) {
-  const slope = (sl2 - sl1) / (price2 - price1);
-  return function (price) {
-    return +(sl1 + slope * (price - price1)).toFixed(4);
-  };
+function getSL(atr){
+  let sl = atr * 2;
+  return sl.toFixed(4);
 }
 
 async function setTpSl() {
@@ -438,8 +434,8 @@ async function setTpSl() {
     const resp = await axios.get(`${process.env.backendURL}/bot/get-trade`, {
       headers: { Authorization: `Bearer A.saboor786` }
     });
-
     const trade = resp?.data;
+    const atr = trade?.atr;
     if (!trade || trade.entryPrice == null) {
       console.log("ℹ️ No active trade found to set TP/SL.");
       return { ok: false, msg: "no-trade" };
@@ -452,7 +448,7 @@ async function setTpSl() {
     }
 
     const tpPctDec = tpFn(entry); // decimal (e.g., 0.006 = 0.6%)
-    const slPctDec = slFn(entry); // decimal
+    const slPctDec = getSL(atr); // decimal
 
     currentTP = tpPctDec;
     currentSL = slPctDec;
@@ -597,7 +593,7 @@ async function checkTPorSL(lastSignal) {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
         }
       }); // WebUrl here 
-    const { entryPrice, type, positionSize, positionSizeUSD, leverage, candleTimestamp } = tradeRes.data;
+    const { entryPrice, type, positionSize, positionSizeUSD, leverage,atr, candleTimestamp } = tradeRes.data;
 
     console.log("Active Trade Found ✅");
 
@@ -614,8 +610,8 @@ async function checkTPorSL(lastSignal) {
       // Set TP and check SL
       const tp = type === "BUY" ? entryPrice * (1 + currentTP) : entryPrice * (1 - currentTP);
       const softSL = type === "BUY"
-        ? entryPrice * (1 - currentSL)  // ~0.8% below for BUY
-        : entryPrice * (1 + currentSL); // ~0.8% above for SELL
+        ? entryPrice - currentSL  // ~0.8% below for BUY
+        : entryPrice  + currentSL; // ~0.8% above for SELL
 
       const slBroken = await isSLBroken(type);
 
@@ -651,6 +647,7 @@ async function checkTPorSL(lastSignal) {
         await axios.post(`${process.env.backendURL}/bot/save-history`, { // WebUrl Here
           profit: profitDollars.toFixed(2),
           entryPrice: entryPrice,
+          atr:atr ,
           time: new Date().toISOString(),
           tradeNumber: tradeCount,
           type: type,
