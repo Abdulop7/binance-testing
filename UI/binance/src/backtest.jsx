@@ -75,9 +75,7 @@ export default function Backtest() {
               <div className="inp-box" id='strategy-box'>
                 <select name="ema" id="" required onChange={changeVal}>
                   <option value="">Choose</option>
-                  <option value="8,13,21,55">Fast EMA (8,13,21,55)</option>
-                  <option value="5,8,13,200">Slow EMA (5,8,13,200)</option>
-
+                  <option value="5,13,34,89">Fast EMA (5,13,34,89)</option>
                 </select>
               </div>
               <div className="inp-box">
