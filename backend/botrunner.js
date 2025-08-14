@@ -186,6 +186,7 @@ async function placeOrder(signal,ema200) {
 
       currentTP = tpFn(entryPrice)
       currentSL = getSL(atr)
+console.log(currentSL) 
 
       const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
@@ -612,6 +613,8 @@ async function checkTPorSL(lastSignal) {
       const softSL = type === "BUY"
         ? entryPrice - currentSL  // ~0.8% below for BUY
         : entryPrice  + currentSL; // ~0.8% above for SELL
+
+console.log(softSL) 
 
       const slBroken = await isSLBroken(type);
 
