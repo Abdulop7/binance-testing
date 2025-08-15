@@ -234,21 +234,19 @@ async function getBalance() {
   const balanceData = await futuresGetSigned('/fapi/v2/account');
   let availableBalance = parseFloat(balanceData.availableBalance);
 
-  // if (availableBalance < 75) {
+  if (availableBalance < 75) {
 
-  //   availableBalance = availableBalance * 0.75
+    availableBalance = availableBalance * 0.75
 
-  // } else if (availableBalance < 50) {
+  } else if (availableBalance < 50) {
 
-  //   availableBalance = availableBalance * 0.5
+    availableBalance = availableBalance * 0.5
 
-  // } else if (availableBalance < 25) {
+  } else if (availableBalance < 25) {
 
-  //   availableBalance = availableBalance * 0.25
+    availableBalance = availableBalance * 0.25
 
-  // }
-
-  availableBalance = availableBalance * 0.5
+  }
 
   const currentPrice = await getLatestPrice(); // ✅ fetch current price
   const dynamicPct = positionSizeFn(currentPrice); // dynamically calculate percentage
