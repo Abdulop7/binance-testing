@@ -148,7 +148,7 @@ async function getBotStatusFromDB() {
   }
 }
 
-async function placeOrder(signal,ema200) {
+async function placeOrder(signal, ema200) {
   try {
     let leverage = 10
     const positionSizeUSD = currentBalance;
@@ -166,7 +166,7 @@ async function placeOrder(signal,ema200) {
     let LatestPrice = await getLatestPrice()
     const getATRFromPrice = createATRCalculator(3, 0.0070, 4, 0.0120);
     let atrRes = getATRFromPrice(LatestPrice)
-    let ExpAtr = parseFloat(atrRes.toFixed(4))  
+    let ExpAtr = parseFloat(atrRes.toFixed(4))
     let endAtr = ExpAtr + 0.0040
 
     const pctAway = Math.abs((LatestPrice - ema200) / ema200);
@@ -186,7 +186,7 @@ async function placeOrder(signal,ema200) {
 
       currentTP = tpFn(entryPrice)
       currentSL = getSL(atr)
-console.log(currentSL) 
+      console.log(currentSL)
 
       const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
@@ -308,7 +308,7 @@ async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
 }
 
 
-async function signalChanged(newSignal, restStatus,ema200) {
+async function signalChanged(newSignal, restStatus, ema200) {
 
   const { inTrade } = await getBotStatusFromDB();
 
@@ -328,7 +328,7 @@ async function signalChanged(newSignal, restStatus,ema200) {
     if (restStatus) {
       console.log('Bot is in Rest. Cant open Trade');
     } else {
-      await placeOrder(newSignal,ema200);
+      await placeOrder(newSignal, ema200);
     }
 
   } else if (inTrade && newSignal != lastTradeSignal) {
@@ -382,7 +382,7 @@ async function checkSignal() {
 
     } else if (newSignal !== lastSignal) {
 
-      await signalChanged(newSignal, finalRest,ema200);
+      await signalChanged(newSignal, finalRest, ema200);
     }
     else {
 
@@ -425,7 +425,7 @@ function createTPCalculator(price1, tp1, price2, tp2) {
   };
 }
 
-function getSL(atr){
+function getSL(atr) {
   let sl = atr * 2;
   return sl.toFixed(4);
 }
@@ -594,7 +594,7 @@ async function checkTPorSL(lastSignal) {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
         }
       }); // WebUrl here 
-    const { entryPrice, type, positionSize, positionSizeUSD, leverage,atr, candleTimestamp } = tradeRes.data;
+    const { entryPrice, type, positionSize, positionSizeUSD, leverage, atr, candleTimestamp } = tradeRes.data;
 
     console.log("Active Trade Found ✅");
 
@@ -610,11 +610,10 @@ async function checkTPorSL(lastSignal) {
 
       // Set TP and check SL
       const tp = type === "BUY" ? entryPrice * (1 + currentTP) : entryPrice * (1 - currentTP);
-      const softSL = type === "BUY"
-        ? entryPrice - currentSL  // ~0.8% below for BUY
-        : entryPrice  + currentSL; // ~0.8% above for SELL
-
-console.log(softSL) 
+      const softSL = type === "BUY" ? entryPrice - currentSL : entryPrice + currentSL;
+      console.log(`Entry Price is = ${entryPrice}. Current SL is = ${currentSL}`);
+      
+      console.log(`Soft SL is = ${softSL}`)
 
       const slBroken = await isSLBroken(type);
 
@@ -650,7 +649,7 @@ console.log(softSL)
         await axios.post(`${process.env.backendURL}/bot/save-history`, { // WebUrl Here
           profit: profitDollars.toFixed(2),
           entryPrice: entryPrice,
-          atr:atr ,
+          atr: atr,
           time: new Date().toISOString(),
           tradeNumber: tradeCount,
           type: type,
