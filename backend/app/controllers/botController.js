@@ -4,7 +4,7 @@ const { model } = require("mongoose");
 const botrunner = require("../../botrunner");
 const BotStatus = require('../models/botStatus')
 const TradeHistory = require("../models/tradeHistory");
-const { ATR } = require('technicalindicators');
+const { ATR, atr } = require('technicalindicators');
 const NewsEvent = require("../models/newsEvent");
 const Trade = require("../models/trade");
 const { getLatestCandle } = require("../../binanceWebSocket");
@@ -323,10 +323,11 @@ async function StopBot(req, res) {
 
 async function SaveTrade(req, res) {
 
-    const { signal, time, price, positionSize, positionSizeUSD, leverage, candleTimestamp } = req.body;
+    const { signal, time, price, positionSize, positionSizeUSD, leverage, candleTimestamp,atr } = req.body;
     activeTrade = {
         entryTime: time,
         entryPrice: price,
+        atr:atr,
         type: signal,
         positionSize: positionSize,
         positionSizeUSD: positionSizeUSD,
