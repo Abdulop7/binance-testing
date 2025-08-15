@@ -610,9 +610,11 @@ async function checkTPorSL(lastSignal) {
 
       // Set TP and check SL
       const tp = type === "BUY" ? entryPrice * (1 + currentTP) : entryPrice * (1 - currentTP);
-      const softSL = type === "BUY" ? entryPrice - currentSL : entryPrice + currentSL;
+      const softSL = type === "BUY"
+        ? Number(entryPrice) - Number(currentSL) 
+        : Number(entryPrice)  + Number(currentSL) ;
       console.log(`Entry Price is = ${entryPrice}. Current SL is = ${currentSL}`);
-      
+
       console.log(`Soft SL is = ${softSL}`)
 
       const slBroken = await isSLBroken(type);
