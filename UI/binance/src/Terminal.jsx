@@ -1,11 +1,7 @@
 import React from 'react'
 import Header from './common/header'
-import { useState } from 'react';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
-import { useRef } from 'react';
-import { useEffect } from 'react';
-import { useBotController } from './botState';
 import { useDispatch, useSelector } from 'react-redux';
 
 
@@ -13,13 +9,12 @@ export default function Terminal() {
     const dispatch = useDispatch()
   const botStatus = useSelector(state => state)
 
-    const { active} = useBotController();
 
     async function startBot(e){
 
         e.preventDefault();
 
-        axios.post('https://binance-backend-try.onrender.com/bot/start-bot',
+        axios.post('https://binance-backend-6n65.onrender.com/bot/start-bot',
             {},
             {
                 headers: {
@@ -36,7 +31,7 @@ export default function Terminal() {
 
     function stopBot(){
 
-        axios.post('https://binance-backend-try.onrender.com/bot/stop-bot',
+        axios.post('https://binance-backend-6n65.onrender.com/bot/stop-bot',
             {},
             {
                 headers: {

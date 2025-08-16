@@ -15,7 +15,7 @@ export function BotControllerProvider({ children }) {
   useEffect(() => {
     async function fetchStatus() {
       try {
-        const res = await axios.get("https://binance-backend-try.onrender.com/bot/status",
+        const res = await axios.get("https://binance-backend-6n65.onrender.com/bot/status",
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
