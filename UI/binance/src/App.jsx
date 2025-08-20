@@ -19,7 +19,7 @@ function App() {
   function getPrice() {
 
     axios
-      .get("https://binance-backend-6n65.onrender.com/bot/view",
+      .get("https://binance-new-backend.onrender.com/bot/view",
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

@@ -424,7 +424,7 @@ function createTPCalculator(price1, tp1, price2, tp2) {
 }
 
 function getSL(atr) {
-  let sl = atr * 2;
+  let sl = atr * 1.5;
   return sl.toFixed(4);
 }
 

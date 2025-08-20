@@ -8,13 +8,12 @@ export default function Bots() {
 
   async function getSignal(){
 
-    let res = await axios.get("https://binance-backend-6n65.onrender.com/bot/ema",
+    let res = await axios.get("https://binance-new-backend.onrender.com/bot/ema",
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
                 }
             }); // WebURl here
-    let data = res.data
     let signal = res.data.msg.signal;
     setSignal(signal)
   }

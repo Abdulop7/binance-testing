@@ -83,7 +83,7 @@ export default function News() {
             pktDate
         });
 
-        await axios.post('https://binance-backend-6n65.onrender.com/bot/add-news', {
+        await axios.post('https://binance-new-backend.onrender.com/bot/add-news', {
             type: newsType,
             date: pktTimeISO
         },
@@ -109,7 +109,7 @@ export default function News() {
     useEffect(() => {
         async function fetchNews() {
             try {
-                const res = await axios.get('https://binance-backend-6n65.onrender.com/bot/show-news',
+                const res = await axios.get('https://binance-new-backend.onrender.com/bot/show-news',
                     {
                         headers: {
                             Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
