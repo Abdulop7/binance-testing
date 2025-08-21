@@ -197,6 +197,10 @@ async function placeOrder(signal, ema200) {
     else if(emaHistory.length >= 5 && Math.abs(slope) < threshold){
       console.log(`Slope is at ${slope}. It should be at ${threshold}`);
       
+      if (emaHistory.length < 5){
+        console.log("Not enough EMA data yet, skipping slope check...");
+        return
+      }
     }
     else {
 
