@@ -75,6 +75,18 @@ const positionSizeFn = createPositionSizeCalculator(3.00, 0.98, 4.00, 0.75); // 
 let currentTP = 0
 let currentSL = 0
 let lastTradeSignal = null
+let emaHistory = []
+
+function updateEMA(emaNow) {
+    emaHistory.push(emaNow);   // 1. Add the latest EMA value to the array
+    console.log(`Ema Updated. Current Ema History is = ${emaHistory}`);
+    
+    // 2. Keep array size fixed (only last 10 values)
+    if (emaHistory.length > 10) {
+        emaHistory.shift();  // Removes the oldest value (first element of the array)
+    }
+}
+
 
 
 async function setLastTradeSignal(signal) {
@@ -167,9 +179,14 @@ async function placeOrder(signal, ema200) {
     const getATRFromPrice = createATRCalculator(3, 0.0070, 4, 0.0120);
     let atrRes = getATRFromPrice(LatestPrice)
     let ExpAtr = parseFloat(atrRes.toFixed(4))
-    let endAtr = ExpAtr + 0.0040
+    let endAtr = ExpAtr + 0.0040;
+    let emaNow = emaHistory[emaHistory.length - 1];   // latest
+    let ema5ago = emaHistory[emaHistory.length - 5];
+    let threshold = 0.001;
+    let slope = (emaNow - ema5ago) / ema5ago
+    
 
-    const pctAway = Math.abs((LatestPrice - ema200) / ema200);
+    // const pctAway = Math.abs((LatestPrice - ema200) / ema200);
 
     if (atr < ExpAtr || atr > endAtr) {
       console.log(`⛔ ATR is at ${atr} and it Should be between ${ExpAtr} to ${endAtr} — skipping trade.`);
@@ -177,6 +194,10 @@ async function placeOrder(signal, ema200) {
     // else if(pctAway > 0.0085){
     //    console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade.`);
     // }
+    else if(emaHistory.length >= 5 && Math.abs(slope) < threshold){
+      console.log(`Slope is at ${slope}. It should be at ${threshold}`);
+      
+    }
     else {
 
       await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
@@ -373,6 +394,7 @@ async function checkSignal() {
     let res = await calculateEmaSignal()
     const newSignal = res.msg.signal;
     const ema200 = parseFloat(res.msg.ema200.toFixed(4));
+    updateEMA(ema200);
 
     if (newSignal == undefined) {
 
