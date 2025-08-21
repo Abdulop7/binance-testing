@@ -189,6 +189,7 @@ async function placeOrder(signal, ema200) {
 
     if (atr < ExpAtr || atr > endAtr) {
       console.log(`⛔ ATR is at ${atr} and it Should be between ${ExpAtr} to ${endAtr} — skipping trade.`);
+      console.log(`⛔ Slope is at ${Math.abs(slope).toFixed(4)}.`);
     }
     // else if(pctAway > 0.0085){
     //    console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade.`);
