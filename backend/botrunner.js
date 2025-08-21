@@ -79,7 +79,6 @@ let emaHistory = []
 
 function updateEMA(emaNow) {
     emaHistory.push(emaNow);   // 1. Add the latest EMA value to the array
-    console.log(`Ema Updated. Current Ema History is = ${emaHistory}`);
     
     // 2. Keep array size fixed (only last 10 values)
     if (emaHistory.length > 10) {
