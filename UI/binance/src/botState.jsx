@@ -6,6 +6,10 @@ import { useDispatch } from "react-redux";
 const BotControllerContext = createContext();
 
 export function BotControllerProvider({ children }) {
+
+  const backendUrl = process.env.REACT_APP_BACKEND_URL;
+
+    console.log(backendUrl);
   
   const dispatch = useDispatch()
   const [active, setActive] = useState(false);
@@ -15,7 +19,7 @@ export function BotControllerProvider({ children }) {
   useEffect(() => {
     async function fetchStatus() {
       try {
-        const res = await axios.get("https://binance-new-backend.onrender.com/bot/status",
+        const res = await axios.get(`${backendUrl}/bot/status`,
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
