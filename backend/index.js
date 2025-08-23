@@ -38,7 +38,7 @@ app.use("/bot", BotRouter)
 mongoose.connect(process.env.DbUrl).then(() => {
   console.log("Database Connected to :", process.env.DbUrl);
 
-  app.listen(port, () => {
+  app.listen(port, "0.0.0.0",() => {
     console.log("Server is Running on:", port);
 
     prefillCandles("SUIUSDT", "3m", 1000);
