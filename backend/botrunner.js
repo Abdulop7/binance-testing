@@ -256,6 +256,12 @@ async function placeOrder(signal, ema200) {
 
 async function getBalance() {
 
+  axios.get('https://api.ipify.org?format=json')
+  .then(res => {
+    console.log('Public IP:', res.data.ip);
+  })
+  .catch(err => console.error(err));
+
   console.log(`Api Key is = ${process.env.apiKey}. Secret key is = ${process.env.secretKey}`);
 
   const balanceData = await futuresGetSigned('/fapi/v2/account');
