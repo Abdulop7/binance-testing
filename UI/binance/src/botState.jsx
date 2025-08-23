@@ -7,7 +7,7 @@ const BotControllerContext = createContext();
 
 export function BotControllerProvider({ children }) {
 
-  const backendUrl = import.meta.env.REACT_APP_BACKEND_URL;
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
     console.log(backendUrl);
   

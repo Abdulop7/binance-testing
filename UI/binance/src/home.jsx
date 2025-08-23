@@ -3,7 +3,7 @@ import Header from './common/header'
 import axios from 'axios'
 
 export default function Home() {
-  const backendUrl = import.meta.env.REACT_APP_BACKEND_URL;
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
     console.log(backendUrl);
 
