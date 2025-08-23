@@ -3,6 +3,9 @@ import Header from './common/header'
 import axios from 'axios'
 
 export default function Home() {
+  const backendUrl = process.env.REACT_APP_BACKEND_URL;
+
+    console.log(backendUrl);
 
   let [inTrade, setInTrade] = useState(false)
   let [type, setType] = useState('')
@@ -15,7 +18,7 @@ export default function Home() {
   async function fetchStatus() {
     try{
       
-      let res = await axios.get("https://binance-new-backend.onrender.com/bot/get-trade",
+      let res = await axios.get(`${backendUrl}/bot/get-trade`,
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -46,7 +49,7 @@ export default function Home() {
 
   async function getBalance(){
 
-    const balanceRes = await axios.get("https://binance-new-backend.onrender.com/bot/get-balance",
+    const balanceRes = await axios.get(`${backendUrl}/bot/get-balance`,
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
