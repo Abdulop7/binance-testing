@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for binance-project-zdbbw on 2025-08-23T06:19:58Z
+# fly.toml app configuration file generated for binance-project on 2025-08-23T07:12:36Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'binance-project-zdbbw'
+app = 'binance-project'
 primary_region = 'syd'
 
 [build]
