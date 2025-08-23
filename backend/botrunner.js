@@ -256,6 +256,8 @@ async function placeOrder(signal, ema200) {
 
 async function getBalance() {
 
+  console.log(`Api Key is = ${process.env.apiKey}. Secret key is = ${process.env.secretKey}`);
+
   const balanceData = await futuresGetSigned('/fapi/v2/account');
   let availableBalance = parseFloat(balanceData.availableBalance);
 
@@ -795,7 +797,7 @@ async function setLeverage(symbol, leverage) {
 }
 
 async function futuresPostSigned(endpoint, params = {}) {
-
+  
   const timestamp = Date.now();
   const query = new URLSearchParams({ ...params, timestamp }).toString();
   const signature = signRequest(query, process.env.secretKey);
@@ -832,7 +834,6 @@ async function futuresGetSigned(endpoint, params = {}) {
   const signature = signRequest(query, process.env.secretKey);
   const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
 
-  console.log(`Api Keys is = ${process.env.apiKey}`);
   
 
   const response = await axios.get(url, {
