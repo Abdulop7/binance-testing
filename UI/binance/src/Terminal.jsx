@@ -6,15 +6,21 @@ import { useDispatch, useSelector } from 'react-redux';
 
 
 export default function Terminal() {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+
+    console.log(backendUrl);
+    
+    
+    
     const dispatch = useDispatch()
-  const botStatus = useSelector(state => state)
-
-
+    const botStatus = useSelector(state => state)
+    
+    
     async function startBot(e){
-
+        
         e.preventDefault();
 
-        axios.post('https://binance-new-backend.onrender.com/bot/start-bot',
+        axios.post(`${backendUrl}/bot/start-bot`,
             {},
             {
                 headers: {
@@ -31,7 +37,7 @@ export default function Terminal() {
 
     function stopBot(){
 
-        axios.post('https://binance-new-backend.onrender.com/bot/stop-bot',
+        axios.post(`${backendUrl}/bot/stop-bot`,
             {},
             {
                 headers: {

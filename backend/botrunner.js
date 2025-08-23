@@ -262,8 +262,6 @@ async function getBalance() {
   })
   .catch(err => console.error(err));
 
-  console.log(`Api Key is = ${process.env.apiKey}. Secret key is = ${process.env.secretKey}`);
-
   const balanceData = await futuresGetSigned('/fapi/v2/account');
   let availableBalance = parseFloat(balanceData.availableBalance);
 
