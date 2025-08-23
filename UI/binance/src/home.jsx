@@ -5,8 +5,6 @@ import axios from 'axios'
 export default function Home() {
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-    console.log(backendUrl);
-
   let [inTrade, setInTrade] = useState(false)
   let [type, setType] = useState('')
   let [balance, setBlance] = useState('')

@@ -8,6 +8,8 @@ import Header from './common/header';
 
 
 function App() {
+
+
   useEffect(() => {
     getPrice();
 
@@ -17,9 +19,11 @@ function App() {
   let [currPrice, setCurrPrice] = useState()
 
   function getPrice() {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 
     axios
-      .get("https://binance-new-backend.onrender.com/bot/view",
+      .get(`${backendUrl}/bot/view`,
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

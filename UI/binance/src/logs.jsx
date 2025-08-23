@@ -3,6 +3,7 @@ import Header from './common/header'
 import React, { useEffect, useState } from 'react';
 
 export default function Logs() {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
   let [trades, setTrades] = useState([])
   let [tProfit, setTprofit] = useState("")
@@ -11,7 +12,7 @@ export default function Logs() {
 
     async function fetchTrades() {
 
-      let res = await axios.get("https://binance-new-backend.onrender.com/bot/all-trades",
+      let res = await axios.get(`${backendUrl}/bot/all-trades`,
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

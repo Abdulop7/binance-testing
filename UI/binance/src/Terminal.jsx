@@ -8,10 +8,6 @@ import { useDispatch, useSelector } from 'react-redux';
 export default function Terminal() {
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-    console.log(backendUrl);
-    
-    
-    
     const dispatch = useDispatch()
     const botStatus = useSelector(state => state)
     

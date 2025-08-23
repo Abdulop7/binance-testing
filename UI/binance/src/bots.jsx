@@ -3,12 +3,13 @@ import Header from './common/header'
 import axios from "axios";
 
 export default function Bots() {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
   let [signal,setSignal] = useState("")
 
   async function getSignal(){
 
-    let res = await axios.get("https://binance-new-backend.onrender.com/bot/ema",
+    let res = await axios.get(`${backendUrl}/bot/ema`,
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

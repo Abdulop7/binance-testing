@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import loaderImg from './assets/loader.gif'
 
 export default function Backtest() {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
   let [wr, setWR] = useState("N/A")
   let [profit, setProfit] = useState("N/A")
@@ -42,7 +43,7 @@ export default function Backtest() {
     setLoader(true)
     evt.preventDefault();
 
-    let res = await axios.get(`https://binance-new-backend.onrender.com/bot/backtest?pSize=${input.position}&capital=${input.capital}&qty=${input.interval}&symbol=${input.symbol}&ema=${input.ema}&tf=${input.tf}`,
+    let res = await axios.get(`${backendUrl}/bot/backtest?pSize=${input.position}&capital=${input.capital}&qty=${input.interval}&symbol=${input.symbol}&ema=${input.ema}&tf=${input.tf}`,
             {
                 headers: {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend

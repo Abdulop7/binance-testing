@@ -8,8 +8,6 @@ const BotControllerContext = createContext();
 export function BotControllerProvider({ children }) {
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
-    console.log(backendUrl);
   
   const dispatch = useDispatch()
   const [active, setActive] = useState(false);

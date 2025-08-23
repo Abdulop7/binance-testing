@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function News() {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
     const [newsType, setNewsType] = useState("");
     const [newsDay, setNewsDay] = useState("");
@@ -83,7 +84,7 @@ export default function News() {
             pktDate
         });
 
-        await axios.post('https://binance-new-backend.onrender.com/bot/add-news', {
+        await axios.post(`${backendUrl}/bot/add-news`, {
             type: newsType,
             date: pktTimeISO
         },
