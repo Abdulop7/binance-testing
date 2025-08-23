@@ -832,6 +832,9 @@ async function futuresGetSigned(endpoint, params = {}) {
   const signature = signRequest(query, process.env.secretKey);
   const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
 
+  console.log(`Api Keys is = ${process.env.apiKey}`);
+  
+
   const response = await axios.get(url, {
     headers: {
       'X-MBX-APIKEY': process.env.apiKey,
