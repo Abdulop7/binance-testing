@@ -172,7 +172,7 @@ async function placeOrder(signal, ema200) {
       }); // WebUrl Here
     const { atr } = data;
 
-    console.log(`Atr is ${atr}`);
+    
 
     let LatestPrice = await getLatestPrice()
     const getATRFromPrice = createATRCalculator(3, 0.0070, 4, 0.0120);
@@ -181,9 +181,8 @@ async function placeOrder(signal, ema200) {
     let endAtr = ExpAtr + 0.0040;
     let emaNow = emaHistory[emaHistory.length - 1];   // latest
     let ema5ago = emaHistory[emaHistory.length - 5];
-    let threshold = 0.0008;
+    let threshold = 0.0001;
     let slope = (emaNow - ema5ago) / ema5ago
-    
 
     // const pctAway = Math.abs((LatestPrice - ema200) / ema200);
 
@@ -205,7 +204,8 @@ async function placeOrder(signal, ema200) {
     else {
 
       await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
-
+      console.log(`Slope is ${slope}`);
+      console.log(`Atr is ${atr}`);
 
       const entryPrice = await getPrice();
 
