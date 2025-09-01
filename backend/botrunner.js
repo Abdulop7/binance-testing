@@ -193,7 +193,7 @@ async function placeOrder(signal, ema200) {
     // else if(pctAway > 0.0085){
     //    console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade.`);
     // }
-    else if(emaHistory.length >= 5 && Math.abs(slope).toFixed(4) < threshold){
+    else if(emaHistory.length >= 5 && Math.abs(slope).toFixed(4) <= threshold){
       console.log(`⛔ Slope is at ${Math.abs(slope).toFixed(4)}. It should be at ${threshold}`);
       
       if (emaHistory.length < 5){
