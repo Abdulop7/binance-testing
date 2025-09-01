@@ -5,6 +5,7 @@ let TradeHistorySchema = new Schema({
     tradeNumber:Number,
     entryPrice:Number,
     profit:Number,
+    slope:Number,
     time: { type: Date, default: Date.now },
     type:String,
     positionSize:Number,

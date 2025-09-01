@@ -204,7 +204,7 @@ async function placeOrder(signal, ema200) {
     else {
 
       await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
-      console.log(`Slope is ${slope}`);
+      console.log(`Slope is ${Math.abs(slope).toFixed(4)}`);
       console.log(`Atr is ${atr}`);
 
       const entryPrice = await getPrice();
@@ -233,6 +233,7 @@ async function placeOrder(signal, ema200) {
         time: pakTime.toISOString(), // Saved in ISO format but in PKT
         price: entryPrice,
         atr: atr,
+        slope: Math.abs(slope).toFixed(4) ,
         positionSize: pairQuantity,
         positionSizeUSD: positionSizeUSD,
         leverage: leverage,
@@ -624,7 +625,7 @@ async function checkTPorSL(lastSignal) {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
         }
       }); // WebUrl here 
-    const { entryPrice, type, positionSize, positionSizeUSD, leverage, atr, candleTimestamp } = tradeRes.data;
+    const { entryPrice, type, positionSize, positionSizeUSD, leverage, atr,slope, candleTimestamp } = tradeRes.data;
 
     console.log("Active Trade Found ✅");
 
@@ -682,6 +683,7 @@ async function checkTPorSL(lastSignal) {
           profit: profitDollars.toFixed(2),
           entryPrice: entryPrice,
           atr: atr,
+          slope:slope,
           time: new Date().toISOString(),
           tradeNumber: tradeCount,
           type: type,

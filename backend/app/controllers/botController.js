@@ -323,11 +323,12 @@ async function StopBot(req, res) {
 
 async function SaveTrade(req, res) {
 
-    const { signal, time, price, positionSize, positionSizeUSD, leverage, candleTimestamp,atr } = req.body;
+    const { signal, time, price, positionSize, positionSizeUSD,slope, leverage, candleTimestamp,atr } = req.body;
     activeTrade = {
         entryTime: time,
         entryPrice: price,
         atr:atr,
+        slope:slope,
         type: signal,
         positionSize: positionSize,
         positionSizeUSD: positionSizeUSD,
