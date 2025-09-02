@@ -8,5 +8,8 @@
     "node-binance-api": "^1.0.10",
     "react-router-dom": "^7.6.1",
     "technicalindicators": "^3.1.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.4"
   }
 }

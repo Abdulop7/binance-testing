@@ -110,7 +110,7 @@ export default function News() {
     useEffect(() => {
         async function fetchNews() {
             try {
-                const res = await axios.get('https://binance-new-backend.onrender.com/bot/show-news',
+                const res = await axios.get(`${backendUrl}/bot/show-news`,
                     {
                         headers: {
                             Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
@@ -130,69 +130,82 @@ export default function News() {
     return (
         <>
             <Header />
-            <div className='main'>
-                <h1 className='news-head'>Set News Times</h1>
-                <form className="news" action="" onSubmit={submitNews}>
-                    <div className="news-box">
-                        <h1>Set News Type :</h1>
-                        <select required value={newsType} onChange={e => setNewsType(e.target.value)} name="news" id="">
-                            <option value="">Select</option>
-                            <option value="FOMC">FOMC</option>
-                            <option value="CPI">CPI</option>
-                            <option value="NFP">NFP</option>
-                            <option value="FED_SPEAK">FED Speaks</option>
-                        </select>
-                    </div>
-                    <div className="news-box">
-                        <h1>Set news Time :</h1>
-                        <input value={newsTime} onChange={e => setNewsTime(e.target.value)} required type="time" />
-                    </div>
-                    <div className="news-box">
-                        <h1>Select Day of Week:</h1>
-                        <select required value={newsDay} onChange={e => setNewsDay(e.target.value)}>
-                            <option value="">Select</option>
-                            {weekdays.map(day => (
-                                <option key={day} value={day}>{day}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="news-box">
-                        <button style={{ cursor: "pointer" }}>Set Time</button>
-                    </div>
+             <div className="news-container">
+      <h1 className="news-head">📢 Set News Times</h1>
 
-                </form>
-                <div className="news-log">
-                    <h1>Pending News</h1>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>
-                                    <h1>Type</h1>
-                                </th>
-                                <th>
-                                    <h1>News Time</h1>
-                                </th>
-                                <th>
-                                    <h1>Stop At</h1>
-                                </th>
-                                <th>
-                                    <h1>Resume At</h1>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {newsList.map((news, idx) => (
-                                <tr key={idx}>
-                                    <td><h2>{news.type}</h2></td>
-                                    <td><h2>{formatPKT(news.date)}</h2></td>
-                                    <td><h2>{formatPKT(news.stopTime)}</h2></td>
-                                    <td><h2>{formatPKT(news.resumeTime)}</h2></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+      <form className="news-form" onSubmit={submitNews}>
+        <div className="form-group">
+          <label>News Type</label>
+          <select
+            required
+            value={newsType}
+            onChange={(e) => setNewsType(e.target.value)}
+          >
+            <option value="">Select</option>
+            <option value="FOMC">FOMC</option>
+            <option value="CPI">CPI</option>
+            <option value="NFP">NFP</option>
+            <option value="FED_SPEAK">FED Speaks</option>
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>News Time</label>
+          <input
+            value={newsTime}
+            onChange={(e) => setNewsTime(e.target.value)}
+            required
+            type="time"
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Day of Week</label>
+          <select
+            required
+            value={newsDay}
+            onChange={(e) => setNewsDay(e.target.value)}
+          >
+            <option value="">Select</option>
+            {weekdays.map((day) => (
+              <option key={day} value={day}>
+                {day}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button type="submit" className="submit-btn">
+          Set Time
+        </button>
+      </form>
+
+      <div className="news-log">
+        <h2>📝 Pending News</h2>
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>News Time</th>
+                <th>Stop At</th>
+                <th>Resume At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {newsList.map((news, idx) => (
+                <tr key={idx}>
+                  <td>{news.type}</td>
+                  <td>{formatPKT(news.date)}</td>
+                  <td>{formatPKT(news.stopTime)}</td>
+                  <td>{formatPKT(news.resumeTime)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
         </>
     )
 }
