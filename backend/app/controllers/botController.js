@@ -388,11 +388,12 @@ async function ClearTrade(req, res) {
 
 async function SaveHistory(req, res) {
 
-    const { tradeNumber, profit, time, type, positionSize, positionSizeUSD, leverage, entryPrice } = req.body;
+    const { tradeNumber, profit, time, type, positionSize, positionSizeUSD,slope, leverage, entryPrice } = req.body;
 
     const history = new TradeHistory({
         tradeNumber,
         entryPrice,
+        slope,
         profit,
         time: time || new Date(),
         type: type,
