@@ -61,7 +61,7 @@ export default function Home() {
 
   async function subscribeToPush() {
     if ("serviceWorker" in navigator && "PushManager" in window) {
-      const reg = await navigator.serviceWorker.register("../public/sw.js");
+      const reg = await navigator.serviceWorker.register("/sw.js");
 
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
