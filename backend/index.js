@@ -1,4 +1,5 @@
 const cors = require('cors');
+const webPush = require("web-push");
 const express = require("express");
 require("dotenv").config()
 let app = express()
@@ -10,6 +11,11 @@ const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
 const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal, setTpSl, setLastTradeSignal } = require('./botrunner.js');
 const { startPriceSocket, startCandleSocket, prefillCandles } = require('./binanceWebSocket.js');
+webPush.setVapidDetails(
+  "mailto:abdulsaboora691@gmail.com",
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 
 
 

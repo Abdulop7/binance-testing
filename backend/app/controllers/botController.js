@@ -464,4 +464,10 @@ async function showNews(req, res) {
     res.json(newsEvents);
 }
 
-module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews }
+async function subscribe(req, res) {
+    const subscription = req.body;
+    botrunner.saveSubscription(subscription);
+    res.status(201).json({});
+}
+
+module.exports = { placeOrder, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews , subscribe}

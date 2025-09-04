@@ -76,6 +76,18 @@ let currentTP = 0
 let currentSL = 0
 let lastTradeSignal = null
 let emaHistory = []
+let subscriptions = [];
+
+function saveSubscription(subscription){
+  subscriptions.push(subscription); 
+  console.log(subscription);
+}
+
+function sendPushNotification(message) {
+  subscriptions.forEach(sub => {
+    webPush.sendNotification(sub, message).catch(err => console.error(err));
+  });
+}
 
 function updateEMA(emaNow) {
     emaHistory.push(emaNow);   // 1. Add the latest EMA value to the array
@@ -507,6 +519,7 @@ async function startLoop() {
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
   console.log("Bot loop started.");
+  sendPushNotification("🤖 Bot has started trading!");
 }
 
 async function stopLoop() {
@@ -913,5 +926,6 @@ module.exports = {
   calculateEmaSignal,
   setTpSl,
   getPrice,
-  setLastTradeSignal
+  setLastTradeSignal,
+  saveSubscription
 };
