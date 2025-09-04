@@ -22,6 +22,7 @@
     "nodemon": "^3.1.10",
     "pm2": "^6.0.8",
     "technicalindicators": "^3.1.0",
+    "web-push": "^3.6.7",
     "ws": "^8.18.3"
   }
 }
