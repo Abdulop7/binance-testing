@@ -230,7 +230,7 @@ async function placeOrder(signal, ema200) {
     //    console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade.`);
     // }
     else if(emaHistory.length >= 5 && Math.abs(slope).toFixed(4) <= threshold){
-      console.log(`⛔ Slope is at ${Math.abs(slope).toFixed(4)}. It should be at ${threshold}`);
+      console.log(`⛔ Slope is at ${Math.abs(slope).toFixed(4)}. It should be at ${threshold + 1}`);
       
       if (emaHistory.length < 5){
         console.log("⛔ Not enough EMA data yet, skipping slope check...");
@@ -431,7 +431,7 @@ async function checkSignal() {
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;
-    let restHours = pkHour >= 7 && pkHour < 13
+    let restHours = (pkHour >= 7 && pkHour < 13) || (pkHour >= 17 && pkHour < 24)
     let finalRest = RestDay || pausedOnNews || restHours || drawdownHit
 
     if (RestDay) console.log("⛔ Bot is In Rest Due to RestDay");
