@@ -72,12 +72,29 @@ async function calculateEmaSignal() {
 
 
 const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
-
 let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
 let currentBalance = 0
-const tpFn = createTPCalculator(3.00, 0.005, 4.00, 0.0085); // 0.5% to 0.85%
+
+const tpFn = (price) => {
+
+  if (price >= 2 && price < 3) {
+    return 0.0055; // 0.55%
+  } else if (price >= 3 && price < 4) {
+    return 0.0085; // 0.85%
+  } else if (price >= 4 && price < 5) {
+    return 0.10;   // ⚡ maybe you want to define this
+  } else if (price >= 5 && price < 6) {
+    return 0.13;   // 13%
+  } else if (price >= 6 && price < 7) {
+    return 0.16;   // 16%
+  } else if (price >= 7) {
+    return 0.19;   // 19%
+  }
+  return null; // no TP defined
+
+}
 const positionSizeFn = createPositionSizeCalculator(3.00, 0.98, 4.00, 0.75); // 98% → 75%
 let currentTP = 0
 let currentSL = 0
@@ -468,12 +485,12 @@ function createATRCalculator(price1, atr1, price2, atr2) {
   };
 }
 
-function createTPCalculator(price1, tp1, price2, tp2) {
-  const slope = (tp2 - tp1) / (price2 - price1);
-  return function (price) {
-    return +(tp1 + slope * (price - price1)).toFixed(4);
-  };
-}
+// function createTPCalculator(price1, tp1, price2, tp2) {
+//   const slope = (tp2 - tp1) / (price2 - price1);
+//   return function (price) {
+//     return +(tp1 + slope * (price - price1)).toFixed(4);
+//   };
+// }
 
 function getSL(atr) {
   let sl = atr * 1.5;
