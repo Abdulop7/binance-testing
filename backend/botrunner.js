@@ -431,7 +431,7 @@ async function checkSignal() {
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;
-    let restHours = (pkHour >= 7 && pkHour < 13) || (pkHour >= 17 && pkHour < 24)
+    let restHours = (pkHour >= 7 && pkHour < 13) || (pkHour >= 21 && pkHour < 24)
     let finalRest = RestDay || pausedOnNews || restHours || drawdownHit
 
     if (RestDay) console.log("⛔ Bot is In Rest Due to RestDay");
