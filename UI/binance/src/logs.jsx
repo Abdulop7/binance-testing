@@ -100,7 +100,7 @@ export default function Logs() {
                     })
                     :
                     <tr>
-                      <td colSpan={8}>
+                      <td colSpan={9}>
                         No Data
                       </td>
                     </tr>
