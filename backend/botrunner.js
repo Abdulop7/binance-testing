@@ -217,7 +217,7 @@ async function placeOrder(signal, ema200) {
     let endAtr = ExpAtr + 0.0040;
     let emaNow = emaHistory[emaHistory.length - 1];   // latest
     let ema5ago = emaHistory[emaHistory.length - 5];
-    let threshold = 0.0001;
+    let threshold = 0.001;
     let slope = (emaNow - ema5ago) / ema5ago
 
     // const pctAway = Math.abs((LatestPrice - ema200) / ema200);
@@ -229,8 +229,8 @@ async function placeOrder(signal, ema200) {
     // else if(pctAway > 0.0085){
     //    console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade.`);
     // }
-    else if(emaHistory.length >= 5 && Math.abs(slope).toFixed(4) <= threshold){
-      console.log(`⛔ Slope is at ${Math.abs(slope).toFixed(4)}. It should be at ${threshold + 1}`);
+    else if(emaHistory.length >= 5 && Math.abs(slope).toFixed(4) < threshold){
+      console.log(`⛔ Slope is at ${Math.abs(slope).toFixed(4)}. It should be at ${threshold}`);
       
       if (emaHistory.length < 5){
         console.log("⛔ Not enough EMA data yet, skipping slope check...");

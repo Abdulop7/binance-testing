@@ -1,6 +1,6 @@
 import axios from 'axios';
 import Header from './common/header'
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function Logs() {
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -24,6 +24,8 @@ export default function Logs() {
       restrades.sort((a, b) => a.tradeNumber - b.tradeNumber);
 
       setTrades(restrades)
+      console.log(restrades);
+      
 
       // Calculate total profit
       const total = restrades.reduce((sum, trade) => sum + (trade.profit || 0), 0);
@@ -58,6 +60,7 @@ export default function Logs() {
                   <th>ENTRY PRICE</th>
                   <th>POSITION SIZE (USD)</th>
                   <th>POSITION SIZE</th>
+                  <th>SLOPE</th>
                   <th>LEVERAGE</th>
                   <th>PROFIT</th>
                 </tr>
@@ -66,7 +69,7 @@ export default function Logs() {
                 {
                   trades.length > 0
                     ?
-                    trades.map((v, i) => {
+                    trades.map((v) => {
 
                       return (
 
@@ -87,6 +90,7 @@ export default function Logs() {
                           <td>{v.entryPrice}</td>
                           <td>{v.positionSizeUSD}</td>
                           <td>{v.positionSize}</td>
+                          <td>{v.slope}</td>
                           <td>{v.leverage}</td>
                           <td className={v.profit >= 0 ? "positive" : "negative"}>{v.profit}$</td>
                         </tr>
