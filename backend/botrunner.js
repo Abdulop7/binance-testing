@@ -4,11 +4,11 @@ const webpush = require('web-push');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
 const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
-webpush.setVapidDetails(
-  "mailto:abdulsaboora691@gmail.com",
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+// webpush.setVapidDetails(
+//   "mailto:abdulsaboora691@gmail.com",
+//   process.env.VAPID_PUBLIC_KEY,
+//   process.env.VAPID_PRIVATE_KEY
+// );
 
 
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
@@ -521,7 +521,7 @@ async function startLoop() {
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
   console.log("Bot loop started.");
-  sendPushNotification("🤖 Bot has started trading!");
+  // sendPushNotification("🤖 Bot has started trading!");
 }
 
 async function stopLoop() {
