@@ -210,36 +210,15 @@ async function placeOrder(signal, ema200) {
 
     
 
-    let LatestPrice = await getLatestPrice()
-    const getATRFromPrice = createATRCalculator(3, 0.0070, 4, 0.0120);
-    let atrRes = getATRFromPrice(LatestPrice)
-    let ExpAtr = parseFloat(atrRes.toFixed(4))
-    let endAtr = ExpAtr + 0.0040;
     let emaNow = emaHistory[emaHistory.length - 1];   // latest
     let ema5ago = emaHistory[emaHistory.length - 5];
-    let threshold = 0.001;
     let slope = (emaNow - ema5ago) / ema5ago
 
     // const pctAway = Math.abs((LatestPrice - ema200) / ema200);
 
-    if (atr < ExpAtr || atr > endAtr) {
-      console.log(`⛔ ATR is at ${atr} and it Should be between ${ExpAtr} to ${endAtr} — skipping trade.`);
-      console.log(`⛔ Slope is at ${Math.abs(slope).toFixed(4)}.`);
-    }
-    // else if(pctAway > 0.0085){
-    //    console.log(`⛔ Price is too far (${(pctAway * 100).toFixed(2)}%) from EMA 200 (${ema200}) — skipping trade.`);
-    // }
-    else if(emaHistory.length >= 5 && Math.abs(slope).toFixed(4) < threshold){
-      console.log(`⛔ Slope is at ${Math.abs(slope).toFixed(4)}. It should be at ${threshold}`);
-      
-      if (emaHistory.length < 5){
-        console.log("⛔ Not enough EMA data yet, skipping slope check...");
-        return
-      }
-    }
-    else {
 
-      await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
+
+      // await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
       console.log(`Slope is ${Math.abs(slope).toFixed(4)}`);
       console.log(`Atr is ${atr}`);
 
@@ -282,7 +261,7 @@ async function placeOrder(signal, ema200) {
         });
 
       await updateBotStatus(true, signal, true); // now inTrade is true
-    }
+    
   }
   catch (err) {
     const msg = err?.response?.data?.msg || err.message || "Unknown error";
@@ -560,7 +539,7 @@ async function stopLoop() {
       });
 
     if (res?.data) {
-      await closePosition('SUIUSDT');
+      // await closePosition('SUIUSDT');
       await axios.post(`${process.env.backendURL}/bot/clear-trade`,
         {},
         {
@@ -698,7 +677,7 @@ async function checkTPorSL(lastSignal) {
 
       if (hitTP || earlyExit || hardSL) {
 
-        await closePosition('SUIUSDT');
+        // await closePosition('SUIUSDT');
 
         // Calculate profit %
         const profitPercent =

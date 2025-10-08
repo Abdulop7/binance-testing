@@ -6,7 +6,7 @@ let latestCandle = null;
 let candleBuffer = []; // To store the latest 1000 candles
 const maxCandles = 1000;
 
-function startPriceSocket(symbol = "suiusdt") {
+function startPriceSocket(symbol = "solusdt") {
   const ws = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@ticker`);
 
   ws.on("open", () => {
@@ -28,7 +28,7 @@ function startPriceSocket(symbol = "suiusdt") {
   });
 }
 
-function startCandleSocket(symbol = "suiusdt") {
+function startCandleSocket(symbol = "solusdt") {
   const ws = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@kline_3m`);
 
   ws.on("open", () => {
@@ -73,7 +73,7 @@ function startCandleSocket(symbol = "suiusdt") {
   });
 }
 
-async function prefillCandles(symbol = "SUIUSDT", interval = "3m", limit = 1000) {
+async function prefillCandles(symbol = "SOLUSDT", interval = "3m", limit = 1000) {
   try {
     const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`;
     const { data } = await axios.get(url);

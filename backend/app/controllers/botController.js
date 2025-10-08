@@ -1,17 +1,12 @@
 const axios = require("axios");
-const Binance = require("node-binance-api");
-const { model } = require("mongoose");
+
 const botrunner = require("../../botrunner");
 const BotStatus = require('../models/botStatus')
 const TradeHistory = require("../models/tradeHistory");
-const { ATR, atr } = require('technicalindicators');
+const { ATR } = require('technicalindicators');
 const NewsEvent = require("../models/newsEvent");
 const Trade = require("../models/trade");
 const { getLatestCandle } = require("../../binanceWebSocket");
-const binance = new Binance().options({
-    APIKEY: process.env.apiKey,
-    APISECRET: process.env.secretKey
-});
 
 let activeTrade = null;
 
@@ -213,28 +208,6 @@ async function doBacktest(req, res) {
     res.json(result);
 }
 
-async function placeOrder(req, res) {
-
-    let signal = req.query.signal
-    let positionSize = req.query.qty
-
-    if (signal === "BUY") {
-
-        const buy = await binance.marketBuy(symbol, quantity);
-        return res.json({ code: 1, status: "Buy order placed", details: buy });
-
-    } else if (signal === "SELL") {
-
-        const sell = await binance.marketSell(symbol, quantity);
-        return res.json({ dode: 1, status: "Sell order placed", details: sell });
-
-    } else {
-
-        return res.status(400).json({ status: 0, error: "Invalid signal type" });
-
-    }
-
-}
 
 async function getBotStatus(req, res) {
     try {
