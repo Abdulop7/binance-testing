@@ -5,7 +5,7 @@ let app = express()
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
-const port = process.env.PORT || 5000; // ✅ right
+const port =  5000; // ✅ right
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
 const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal, setTpSl, setLastTradeSignal } = require('./botrunner.js');
@@ -41,9 +41,9 @@ mongoose.connect(process.env.DbUrl).then(() => {
   app.listen(port, "0.0.0.0",() => {
     console.log("Server is Running on:", port);
 
-    prefillCandles("SUIUSDT", "3m", 1000);
-    startPriceSocket("suiusdt");
-    startCandleSocket("suiusdt");
+    prefillCandles("SOLUSDT", "3m", 1000);
+    startPriceSocket("solusdt");
+    startCandleSocket("solusdt");
     // Delay initialization logic by 3 seconds
     setTimeout(async () => {
       try {
