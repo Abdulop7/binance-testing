@@ -102,8 +102,8 @@ let lastTradeSignal = null
 let emaHistory = []
 let subscriptions = [];
 
-function saveSubscription(subscription){
-  subscriptions.push(subscription); 
+function saveSubscription(subscription) {
+  subscriptions.push(subscription);
   console.log(subscription);
 }
 
@@ -114,12 +114,12 @@ function sendPushNotification(message) {
 }
 
 function updateEMA(emaNow) {
-    emaHistory.push(emaNow);   // 1. Add the latest EMA value to the array
-    
-    // 2. Keep array size fixed (only last 10 values)
-    if (emaHistory.length > 10) {
-        emaHistory.shift();  // Removes the oldest value (first element of the array)
-    }
+  emaHistory.push(emaNow);   // 1. Add the latest EMA value to the array
+
+  // 2. Keep array size fixed (only last 10 values)
+  if (emaHistory.length > 10) {
+    emaHistory.shift();  // Removes the oldest value (first element of the array)
+  }
 }
 
 
@@ -208,60 +208,65 @@ async function placeOrder(signal, ema200) {
       }); // WebUrl Here
     const { atr } = data;
 
-    
+
 
     let emaNow = emaHistory[emaHistory.length - 1];   // latest
     let ema5ago = emaHistory[emaHistory.length - 5];
     let slope = (emaNow - ema5ago) / ema5ago
 
+    if (!Number.isFinite(slope)) {
+      console.warn("⚠️ Slope was NaN or invalid, setting to 0");
+      slope = 0;
+    }
+
     // const pctAway = Math.abs((LatestPrice - ema200) / ema200);
 
 
 
-      // await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
-      console.log(`Slope is ${Math.abs(slope).toFixed(4)}`);
-      console.log(`Atr is ${atr}`);
+    // await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
+    console.log(`Slope is ${Math.abs(slope).toFixed(4)}`);
+    console.log(`Atr is ${atr}`);
 
-      const entryPrice = await getPrice();
+    const entryPrice = await getPrice();
 
-      currentTP = 0.0085
-      currentSL = getSL(atr)
-      console.log(currentSL)
+    currentTP = 0.0085
+    currentSL = getSL(atr)
+    console.log(currentSL)
 
-      const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
-
-
-      // ⏰ Pakistan time manually (UTC + 5)
-      const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
-
-      // ⏰ Get 3m candle timestamp
-      const now = Date.now();
-      const candleTimestamp = now - (now % (3 * 60 * 1000)); // <-- 🆕 This is the key
-
-      console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
-
-      lastTradeSignal = signal;
+    const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
 
-      await axios.post(`${process.env.backendURL}/bot/save-trade`, { // WebUrl Here
-        signal: signal,
-        time: pakTime.toISOString(), // Saved in ISO format but in PKT
-        price: entryPrice,
-        atr: atr,
-        slope: Math.abs(slope).toFixed(4) ,
-        positionSize: pairQuantity,
-        positionSizeUSD: positionSizeUSD,
-        leverage: leverage,
-        candleTimestamp // 🆕 New field
-      },
-        {
-          headers: {
-            Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-          }
-        });
+    // ⏰ Pakistan time manually (UTC + 5)
+    const pakTime = new Date(Date.now() + 5 * 60 * 60 * 1000);
 
-      await updateBotStatus(true, signal, true); // now inTrade is true
-    
+    // ⏰ Get 3m candle timestamp
+    const now = Date.now();
+    const candleTimestamp = now - (now % (3 * 60 * 1000)); // <-- 🆕 This is the key
+
+    console.log(`Order placed for: ${signal} at ${entryPrice} on ${new Date().toLocaleTimeString()}`);
+
+    lastTradeSignal = signal;
+
+
+    await axios.post(`${process.env.backendURL}/bot/save-trade`, { // WebUrl Here
+      signal: signal,
+      time: pakTime.toISOString(), // Saved in ISO format but in PKT
+      price: entryPrice,
+      atr: atr,
+      slope: Number(Math.abs(slope).toFixed(4)),
+      positionSize: pairQuantity,
+      positionSizeUSD: positionSizeUSD,
+      leverage: leverage,
+      candleTimestamp // 🆕 New field
+    },
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      });
+
+    await updateBotStatus(true, signal, true); // now inTrade is true
+
   }
   catch (err) {
     const msg = err?.response?.data?.msg || err.message || "Unknown error";
@@ -273,10 +278,10 @@ async function placeOrder(signal, ema200) {
 async function getBalance() {
 
   axios.get('https://api.ipify.org?format=json')
-  .then(res => {
-    console.log('Public IP:', res.data.ip);
-  })
-  .catch(err => console.error(err));
+    .then(res => {
+      console.log('Public IP:', res.data.ip);
+    })
+    .catch(err => console.error(err));
 
   const balanceData = await futuresGetSigned('/fapi/v2/account');
   let availableBalance = parseFloat(balanceData.availableBalance);
@@ -406,7 +411,7 @@ async function checkSignal() {
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
-    
+
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;
     let restHours = (pkHour >= 7 && pkHour < 13) || (pkHour >= 21 && pkHour < 24)
@@ -641,7 +646,7 @@ async function checkTPorSL(lastSignal) {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
         }
       }); // WebUrl here 
-    const { entryPrice, type, positionSize, positionSizeUSD, leverage, atr,slope, candleTimestamp } = tradeRes.data;
+    const { entryPrice, type, positionSize, positionSizeUSD, leverage, atr, slope, candleTimestamp } = tradeRes.data;
 
     console.log("Active Trade Found ✅");
 
@@ -658,8 +663,8 @@ async function checkTPorSL(lastSignal) {
       // Set TP and check SL
       const tp = type === "BUY" ? entryPrice * (1 + currentTP) : entryPrice * (1 - currentTP);
       const softSL = type === "BUY"
-        ? Number(entryPrice) - Number(currentSL) 
-        : Number(entryPrice)  + Number(currentSL) ;
+        ? Number(entryPrice) - Number(currentSL)
+        : Number(entryPrice) + Number(currentSL);
       console.log(`Entry Price is = ${entryPrice}. Current SL is = ${currentSL}`);
 
       console.log(`Soft SL is = ${softSL}`)
@@ -699,7 +704,7 @@ async function checkTPorSL(lastSignal) {
           profit: profitDollars.toFixed(2),
           entryPrice: entryPrice,
           atr: atr,
-          slope:slope,
+          slope: slope,
           time: new Date().toISOString(),
           tradeNumber: tradeCount,
           type: type,
@@ -819,7 +824,7 @@ async function setLeverage(symbol, leverage) {
 }
 
 async function futuresPostSigned(endpoint, params = {}) {
-  
+
   const timestamp = Date.now();
   const query = new URLSearchParams({ ...params, timestamp }).toString();
   const signature = signRequest(query, process.env.secretKey);
@@ -856,7 +861,7 @@ async function futuresGetSigned(endpoint, params = {}) {
   const signature = signRequest(query, process.env.secretKey);
   const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
 
-  
+
 
   const response = await axios.get(url, {
     headers: {
