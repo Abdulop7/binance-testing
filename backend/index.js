@@ -8,7 +8,7 @@ app.use(express.urlencoded({ extended: true }));
 const port =  5000; // ✅ right
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
-const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, getBalance, calculateEmaSignal, setTpSl, setLastTradeSignal } = require('./botrunner.js');
+const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, calculateEmaSignal, setTpSl, setLastTradeSignal } = require('./botrunner.js');
 const { startPriceSocket, startCandleSocket, prefillCandles } = require('./binanceWebSocket.js');
 
 

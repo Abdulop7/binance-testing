@@ -23,6 +23,8 @@ export function BotControllerProvider({ children }) {
                     Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
                 }
             }); // WebURL Here
+            console.log(res);
+            
         setSignalD(res.data.lastSignal);
         res.data.isActive ? dispatch({type : 'ENABLE'}) : dispatch({type : 'DISABLE'})
         

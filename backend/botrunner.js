@@ -75,7 +75,7 @@ const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
 let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
-let currentBalance = 0
+let currentBalance = 1000
 
 const tpFn = (price) => {
 
@@ -410,11 +410,12 @@ async function checkSignal() {
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;
     let restHours = (pkHour >= 7 && pkHour < 13) || (pkHour >= 21 && pkHour < 24)
-    let finalRest = RestDay || pausedOnNews || restHours || drawdownHit
+    // let finalRest = RestDay || pausedOnNews || restHours || drawdownHit
+    let finalRest = false;
 
-    if (RestDay) console.log("⛔ Bot is In Rest Due to RestDay");
-    if (restHours) console.log("⛔ Bot is In Rest Due to Rest Hours");
-    if (drawdownHit) console.log("⛔ Bot is Paused Due to Max Daily Drawdown");
+    // if (RestDay) console.log("⛔ Bot is In Rest Due to RestDay");
+    // if (restHours) console.log("⛔ Bot is In Rest Due to Rest Hours");
+    // if (drawdownHit) console.log("⛔ Bot is Paused Due to Max Daily Drawdown");
 
     let res = await calculateEmaSignal()
     const newSignal = res.msg.signal;
@@ -517,7 +518,7 @@ async function setTpSl() {
 
 async function startLoop() {
 
-  await getBalance();
+  // await getBalance();
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
   console.log("Bot loop started.");
@@ -722,7 +723,7 @@ async function checkTPorSL(lastSignal) {
             }
           }); // WebUrl here
 
-        await getBalance();
+        // await getBalance();
 
         console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
 
@@ -924,7 +925,6 @@ module.exports = {
   updLastSignal,
   initTradeCount,
   getFuturesBalance,
-  getBalance,
   calculateEmaSignal,
   setTpSl,
   getPrice,
