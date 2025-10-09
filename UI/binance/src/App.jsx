@@ -41,7 +41,7 @@ function App() {
       <Header />
       <div className="main">
         <div className="view-price">
-          <h1>BTCUSDT</h1>
+          <h1>SOLUSDT</h1>
           <h2>{currPrice ? currPrice : "Loading..."}$</h2>
         </div>
       </div>

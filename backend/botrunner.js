@@ -224,7 +224,7 @@ async function placeOrder(signal, ema200) {
 
       const entryPrice = await getPrice();
 
-      currentTP = tpFn(entryPrice)
+      currentTP = 0.0085
       currentSL = getSL(atr)
       console.log(currentSL)
 
@@ -494,7 +494,7 @@ async function setTpSl() {
       return { ok: false, msg: "bad-entry" };
     }
 
-    const tpPctDec = tpFn(entry); // decimal (e.g., 0.006 = 0.6%)
+    const tpPctDec = 0.0085; // decimal (e.g., 0.006 = 0.6%)
     const slPctDec = getSL(atr); // decimal
 
     currentTP = tpPctDec;
