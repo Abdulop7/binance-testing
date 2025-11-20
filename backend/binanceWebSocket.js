@@ -1,41 +1,56 @@
 const WebSocket = require("ws");
 const axios = require("axios");
 
+let priceWS = null;
+let candleWS = null;
+
+let lastPricePing = Date.now();
+let lastCandlePing = Date.now();
 let latestPrice = null;
 let latestCandle = null;
-let candleBuffer = []; // To store the latest 1000 candles
+let candleBuffer = [];
 const maxCandles = 1000;
 
+// ------------------ PRICE SOCKET ----------------------
+
 function startPriceSocket(symbol = "solusdt") {
-  const ws = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@ticker`);
+  if (priceWS) priceWS.terminate();
 
-  ws.on("open", () => {
-    console.log(`📡 WebSocket connected for ${symbol.toUpperCase()}`);
+  priceWS = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@ticker`);
+
+  priceWS.on("open", () => {
+    console.log(`📡 Price WebSocket connected for ${symbol.toUpperCase()}`);
   });
 
-  ws.on("message", (data) => {
+  priceWS.on("message", (data) => {
+    lastPricePing = Date.now();
     const parsed = JSON.parse(data);
-    latestPrice = Math.round(parseFloat(parsed.c) * 10000) / 10000; // `c` = current price
+    latestPrice = Math.round(parseFloat(parsed.c) * 10000) / 10000;
   });
 
-  ws.on("error", (err) => {
-    console.error("❌ WebSocket error:", err.message);
+  priceWS.on("error", (err) => {
+    console.error("❌ Price WS error:", err.message);
   });
 
-  ws.on("close", () => {
-    console.log("⚠️ WebSocket closed. Reconnecting in 5s...");
-    setTimeout(() => startPriceSocket(symbol), 5000);
+  priceWS.on("close", () => {
+    console.log("⚠️ Price WS closed. Reconnecting...");
+    setTimeout(() => startPriceSocket(symbol), 2000);
   });
 }
 
-function startCandleSocket(symbol = "solusdt") {
-  const ws = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@kline_3m`);
+// ------------------ CANDLE SOCKET ----------------------
 
-  ws.on("open", () => {
-    console.log(`🕒 WebSocket connected for ${symbol.toUpperCase()} 3m candles`);
+function startCandleSocket(symbol = "solusdt") {
+  if (candleWS) candleWS.terminate();
+
+  candleWS = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@kline_3m`);
+
+  candleWS.on("open", () => {
+    console.log(`🕒 Candle WebSocket connected for ${symbol.toUpperCase()}`);
   });
 
-  ws.on("message", (data) => {
+  candleWS.on("message", (data) => {
+    lastCandlePing = Date.now();
     try {
       const parsed = JSON.parse(data);
       const kline = parsed.k;
@@ -63,53 +78,74 @@ function startCandleSocket(symbol = "solusdt") {
     }
   });
 
-  ws.on("error", (err) => {
-    console.error("❌ Candle WebSocket error:", err.message);
+  candleWS.on("error", (err) => {
+    console.error("❌ Candle WS error:", err.message);
   });
 
-  ws.on("close", () => {
-    console.log("⚠️ Candle WebSocket closed. Reconnecting in 5s...");
-    setTimeout(() => startCandleSocket(symbol), 5000);
+  candleWS.on("close", () => {
+    console.log("⚠️ Candle WS closed. Reconnecting...");
+    setTimeout(() => startCandleSocket(symbol), 2000);
   });
 }
+
+// --------------- PREFILL ------------------
 
 async function prefillCandles(symbol = "SOLUSDT", interval = "3m", limit = 1000) {
   try {
-    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`;
+    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
     const { data } = await axios.get(url);
 
-    // Format and store in candleBuffer
-    candleBuffer = data.map(candle => ({
-      openTime: candle[0],
-      open: parseFloat(candle[1]),
-      high: parseFloat(candle[2]),
-      low: parseFloat(candle[3]),
-      closes: parseFloat(candle[4]),
-      volume: parseFloat(candle[5]),
-      closeTime: candle[6],
+    candleBuffer = data.map((c) => ({
+      openTime: c[0],
+      open: parseFloat(c[1]),
+      high: parseFloat(c[2]),
+      low: parseFloat(c[3]),
+      closes: parseFloat(c[4]),
+      volume: parseFloat(c[5]),
+      closeTime: c[6],
     }));
 
     latestCandle = candleBuffer[candleBuffer.length - 1];
-
     console.log(`✅ Pre-filled ${candleBuffer.length} candles.`);
   } catch (err) {
-    console.error("❌ Failed to prefill candles:", err.message);
+    console.error("❌ Prefill error:", err.message);
   }
 }
 
-// Export functions
+// --------------- PUBLIC GETTERS ------------------
+
 function getLatestPrice() {
   return latestPrice;
 }
 
 function getLatestCandle() {
-  return { status: 1, ohlcv: [...candleBuffer] };
+  return {
+    status: 1,
+    ohlcv: [...candleBuffer],
+  };
 }
+
+// --------------- FROZEN SOCKET WATCHDOG ------------------
+
+setInterval(() => {
+  const now = Date.now();
+
+  if (now - lastPricePing > 20000) {
+    console.log("⚠️ Price socket frozen → restarting...");
+    startPriceSocket();
+  }
+
+  if (now - lastCandlePing > 20000) {
+    console.log("⚠️ Candle socket frozen → restarting...");
+    startCandleSocket();
+  }
+
+}, 10000);
 
 module.exports = {
   startPriceSocket,
   startCandleSocket,
+  prefillCandles,
   getLatestPrice,
-  getLatestCandle,
-  prefillCandles
+  getLatestCandle
 };
