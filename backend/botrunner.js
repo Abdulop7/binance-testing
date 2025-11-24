@@ -77,6 +77,18 @@ let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
 let currentBalance = 1000
 
+// Track sent times to avoid duplicate sends
+let lastSent = {
+  "10:00": null,
+  "13:00": null,
+  "16:00": null,
+  "19:00": null
+};
+
+const allowedDays = [1, 2, 3, 4, 5, 6]; // NO SUNDAY
+
+
+
 const tpFn = (price) => {
 
   if (price >= 2 && price < 3) {
@@ -408,6 +420,7 @@ async function checkSignal() {
     const now = new Date();
     const pkDate = new Date(now.getTime() + 5 * 60 * 60 * 1000); // Shift to PKT
     const pkHour = (now.getUTCHours() + 5) % 24;
+    const pkMinute = pkDate.getMinutes();
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
     const drawdownHit = await isMaxDrawdownHit();
@@ -417,6 +430,7 @@ async function checkSignal() {
     let restHours = (pkHour >= 7 && pkHour < 13) || (pkHour >= 21 && pkHour < 24)
     // let finalRest = RestDay || pausedOnNews || restHours || drawdownHit
     let finalRest = false;
+
 
     // if (RestDay) console.log("⛔ Bot is In Rest Due to RestDay");
     // if (restHours) console.log("⛔ Bot is In Rest Due to Rest Hours");
@@ -444,6 +458,43 @@ async function checkSignal() {
 
     // Still check TP/SL in all cases
     await checkTPorSL(finalRest ? null : newSignal);
+
+
+        ////// The Reminders here 
+
+    try {
+
+
+
+      if (!allowedDays.includes(pkDay)) {
+        return; // 🚫 Do nothing on Sundays
+      }
+
+      const currentTime = `${pkHour.toString().padStart(2, "0")}:${pkMinute
+        .toString()
+        .padStart(2, "0")}`;
+
+      const triggerTimes = ["10:00", "13:00", "16:00", "19:00"];
+
+      for (const time of triggerTimes) {
+        if (currentTime === time && lastSent[time] !== pkDate.toDateString()) {
+
+          // 🔥 Trigger your WhatsApp API here
+          sendWhatsappMessage();
+
+          lastSent[time] = pkDate.toDateString(); // Mark as sent for today
+        }
+      }
+
+
+    }
+    catch (err) {
+      console.log(err.message);
+    }
+
+
+
+    //////
   }
   catch (err) {
     const msg = err?.response?.data?.msg || err.message || "Unknown error";
@@ -451,6 +502,11 @@ async function checkSignal() {
   }
 
 }
+
+function sendWhatsappMessage() {
+  return axios.get("https://www.anuarchitect.com/api/sendReminder");
+}
+
 
 function createPositionSizeCalculator(price1, pct1, price2, pct2) {
   const slope = (pct2 - pct1) / (price2 - price1);

@@ -2,7 +2,7 @@ import axios from 'axios';
 import Header from './common/header'
 import { useEffect, useState } from 'react';
 
-let testing = false;
+let testing = true;
 
 function isNewYorkSession(time) {
   const date = new Date(time)
@@ -38,7 +38,7 @@ export default function Logs() {
       }
 
       // Filters
-      const atrFilter = (t) => t.atr >= 0.65 && t.atr <= 1.1
+      const atrFilter = (t) => t.atr >= 0.7 && t.atr <= 1.1
       const nyFilter = (t) => isNewYorkSession(t.time)
       const nonZeroSlope = (t) => t.slope !== 0
 
@@ -186,6 +186,82 @@ export default function Logs() {
 
       console.log("==== HIGH WR COMBOS (70%+) ====");
       console.table(highWRCombos);
+
+      // ================================
+      // 🔥 HOUR × ATR × SLOPE COMBOS
+      // ================================
+
+      const hourRanges = [];
+
+      for (let start = 0; start < 24; start++) {
+        for (let end = start; end < 24; end++) {
+          hourRanges.push([start, end]);
+        }
+      }
+
+      let bestHourAtrSlopeCombos = [];
+
+      for (let [minATR, maxATR] of atrRanges) {
+        for (let [startH, endH] of hourRanges) {
+          for (let useNY of useNYOptions) {
+            for (let useWeekend of useWeekendOptions) {
+              for (let useSlope of useSlopeOptions) {
+
+                // Base filter: ATR
+                let filtered = restrades.filter(t =>
+                  t.atr >= minATR && t.atr <= maxATR
+                );
+
+                // Hour range filter
+                filtered = filtered.filter(t => {
+                  const h = new Date(t.time).getUTCHours();
+                  return h >= startH && h <= endH;
+                });
+
+                if (useNY) filtered = filtered.filter(nyFilter);
+                if (useWeekend) filtered = filtered.filter(weekendFilter);
+                if (useSlope) filtered = filtered.filter(nonZeroSlope);
+
+                const wr = parseFloat(calculateWinrate(filtered));
+                const totalProfit = filtered.reduce((s, t) => s + (t.profit || 0), 0);
+
+                // Keep only strong setups
+                if (filtered.length >= 12 && wr >= 70) {
+                  bestHourAtrSlopeCombos.push({
+                    HourRange: `${startH}:00 - ${endH}:59`,
+                    ATR: `${minATR}-${maxATR}`,
+                    NY: useNY,
+                    Weekend: useWeekend,
+                    Slope: useSlope,
+                    Trades: filtered.length,
+                    Winrate: wr.toFixed(2) + "%",
+                    Profit: totalProfit.toFixed(2),
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Sort by winrate → profit → trades
+      bestHourAtrSlopeCombos.sort((a, b) => {
+        // 1️⃣ Sort by Profit (High → Low)
+        const profit = b.Profit - a.Profit;
+        if (profit !== 0) return profit;
+
+        // 2️⃣ Then by Winrate (High → Low)
+        const wr = parseFloat(b.Winrate) - parseFloat(a.Winrate);
+        if (wr !== 0) return wr;
+
+        // 3️⃣ Then by number of trades (High → Low)
+        return b.Trades - a.Trades;
+      });
+
+
+      console.log("==== BEST HOUR × ATR × SLOPE COMBOS ====");
+      console.table(bestHourAtrSlopeCombos);
+
 
 
 

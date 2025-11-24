@@ -11,6 +11,11 @@ let latestCandle = null;
 let candleBuffer = [];
 const maxCandles = 1000;
 
+const WHATSAPP_API_URL = "https://graph.facebook.com/v20.0";
+const PHONE_NUMBER_ID = 781950855010751; // from your Meta App
+const ACCESS_TOKEN = "EAATCd12aucIBP6AJtN2vO4esFtvUkdoAkHaNzZCkZCN7ZBes1GsG4Y3JlOEkqzADC0IH28Dxd22r8lS1nelMIUl4ZCLX28gDFQHYZApZBg3cqyEVDgHWghuhJuc5hxmNHVKJbA6LFZAxvRXzJxZAQf6rvQ1farDShZCqdxBA7Dbwjfo3LRjMHJvly7ZBe2eNamjAZDZD"; // from your Meta App
+
+
 // ------------------ PRICE SOCKET ----------------------
 
 function startPriceSocket(symbol = "solusdt") {
@@ -131,11 +136,75 @@ setInterval(() => {
   const now = Date.now();
 
   if (now - lastPricePing > 20000) {
+
+    axios.post(
+      `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: "923098113300",
+        type: "template",
+        template: {
+          name: "reminder",
+          language: { code: "en_US" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: "Abdul Saboor" },
+                { type: "text", text: "Bot has Restarted Due to Break in Websocket" },
+              ],
+            },
+          ],
+        }
+
+
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
     console.log("⚠️ Price socket frozen → restarting...");
     startPriceSocket();
   }
 
   if (now - lastCandlePing > 20000) {
+
+    axios.post(
+      `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: "923098113300",
+        type: "template",
+        template: {
+          name: "reminder",
+          language: { code: "en_US" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: "Abdul Saboor" },
+                { type: "text", text: "Bot has Restarted Due to Break in Websocket" },
+              ],
+            },
+          ],
+        }
+
+
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
     console.log("⚠️ Candle socket frozen → restarting...");
     startCandleSocket();
   }
