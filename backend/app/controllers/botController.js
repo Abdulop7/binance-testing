@@ -55,8 +55,7 @@ async function morecandleFetch(req, res) {
     let candleQty = qty / 1000
 
 
-
-    let allCloses = [];
+    let allCandles = [];
     let endTime = Date.now();
 
     for (let i = 0; i < candleQty; i++) { // 20 * 1000 = 20,000 candles
@@ -64,14 +63,26 @@ async function morecandleFetch(req, res) {
         const { data } = await axios.get(url);
         if (!data.length) break;
 
-        const closes = data.map(candle => parseFloat(candle[4]));
-        allCloses = [...closes, ...allCloses];
-        endTime = data[0][0] - 1;
+        const candles = data.map(candle => ({
+            openTime: candle[0],
+            open: parseFloat(candle[1]),
+            high: parseFloat(candle[2]),
+            low: parseFloat(candle[3]),
+            close: parseFloat(candle[4]),
+            volume: parseFloat(candle[5]),
+            closeTime: candle[6],
+            quoteAssetVolume: parseFloat(candle[7]),
+            numberOfTrades: candle[8],
+            takerBuyBase: parseFloat(candle[9]),
+            takerBuyQuote: parseFloat(candle[10])
+        }));
+
+        // prepend to keep chronological order
+        allCandles = [...candles, ...allCandles];
+        endTime = data[0][0] - 1; // move to previous batch
     }
 
-    res.send({
-        closes: allCloses
-    })
+    res.send({ candles: allCandles });
 }
 
 async function getEma(req, res) {
@@ -101,11 +112,11 @@ async function doBacktest(req, res) {
 
     // Fetch close prices
     let response = await axios.get(`${process.env.backendURL}/bot/more-fetch?qty=${qty}&symbol=${symbol}&tf=${tf}`,
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            }); // Web APi URL here
+        {
+            headers: {
+                Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+            }
+        }); // Web APi URL here
     let { closes } = response.data;
 
     clearOldBacktest()
@@ -296,12 +307,12 @@ async function StopBot(req, res) {
 
 async function SaveTrade(req, res) {
 
-    const { signal, time, price, positionSize, positionSizeUSD,slope, leverage, candleTimestamp,atr } = req.body;
+    const { signal, time, price, positionSize, positionSizeUSD, slope, leverage, candleTimestamp, atr } = req.body;
     activeTrade = {
         entryTime: time,
         entryPrice: price,
-        atr:atr,
-        slope:slope,
+        atr: atr,
+        slope: slope,
         type: signal,
         positionSize: positionSize,
         positionSizeUSD: positionSizeUSD,
@@ -361,7 +372,7 @@ async function ClearTrade(req, res) {
 
 async function SaveHistory(req, res) {
 
-    const { tradeNumber, profit, time, type, positionSize,atr, positionSizeUSD,slope, leverage, entryPrice } = req.body;
+    const { tradeNumber, profit, time, type, positionSize, atr, positionSizeUSD, slope, leverage, entryPrice } = req.body;
 
     const history = new TradeHistory({
         tradeNumber,
@@ -444,4 +455,4 @@ async function subscribe(req, res) {
     res.status(201).json({});
 }
 
-module.exports = {  doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews , subscribe}
+module.exports = { doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe }

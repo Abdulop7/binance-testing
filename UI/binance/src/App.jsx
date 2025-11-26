@@ -37,15 +37,51 @@ function App() {
 
 
   return (
-    <>
-      <Header />
-      <div className="main">
-        <div className="view-price">
-          <h1>SOLUSDT</h1>
-          <h2>{currPrice ? currPrice : "Loading..."}$</h2>
-        </div>
-      </div>
-    </>
+<>
+  <Header />
+
+  <div className="w-full min-h-[95vh] bg-[#050505] text-white flex items-center justify-center px-4 py-16">
+
+    {/* Price Card */}
+    <div className="
+      bg-black/60 
+      backdrop-blur-xl 
+      border border-green-700 
+      rounded-3xl 
+      shadow-[0_0_25px_rgba(0,255,0,0.15)] 
+      px-10 py-12 
+      text-center 
+      w-full 
+      max-w-md
+    ">
+
+      {/* Pair Name */}
+      <h1 className="text-4xl font-bold text-green-500 tracking-widest mb-6">
+        SOLUSDT
+      </h1>
+
+      {/* Live Price */}
+      <h2
+        className="
+          text-5xl 
+          font-extrabold 
+          text-green-300 
+          tracking-wide 
+          drop-shadow-[0_0_8px_rgba(0,255,0,0.6)]
+          animate-pulse
+        "
+      >
+        {currPrice ? `${currPrice}$` : "Loading..."}
+      </h2>
+
+      {/* Sub Label */}
+      <p className="text-green-800 text-sm mt-5 tracking-wide">
+        Live Market Price
+      </p>
+    </div>
+  </div>
+</>
+
   )
 }
 

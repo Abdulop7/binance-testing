@@ -11,23 +11,23 @@ export default function Backtest() {
   let [profit, setProfit] = useState("N/A")
   let [trades, setTrades] = useState("N/A")
   let [log, setLog] = useState([])
-  let [initialBalance,setInitialBalance] = useState("N/A")
-  let [fcapital,setFcapital] = useState("N/A")
-  let [drawdown,setDrawdown] = useState("N/A")
-  let [loader,setLoader] = useState(false)
+  let [initialBalance, setInitialBalance] = useState("N/A")
+  let [fcapital, setFcapital] = useState("N/A")
+  let [drawdown, setDrawdown] = useState("N/A")
+  let [loader, setLoader] = useState(false)
 
   let [input, setInput] = useState({
-    tf:"3",
-    interval:"",
+    tf: "3",
+    interval: "",
     capital: "",
     position: "",
-    symbol:"",
-    ema:null
+    symbol: "",
+    ema: null
   })
 
   function changeVal(evt) {
 
-    let oldData = {...input}
+    let oldData = { ...input }
 
     let inpName = evt.target.name;
     let inpValue = evt.target.value
@@ -35,21 +35,23 @@ export default function Backtest() {
     oldData[inpName] = inpValue
 
     setInput(oldData)
-    
+
   }
 
   async function getResult(evt) {
-    
+
     setLoader(true)
     evt.preventDefault();
 
-    let res = await axios.get(`${backendUrl}/bot/backtest?pSize=${input.position}&capital=${input.capital}&qty=${input.interval}&symbol=${input.symbol}&ema=${input.ema}&tf=${input.tf}`,
-            {
-                headers: {
-                    Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-                }
-            }) // WebUrl Here 
+    let res = await axios.get(`${backendUrl}/bot/more-fetch?qty=${input.interval}&symbol=${input.symbol}&tf=${input.tf}`,
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      }) // WebUrl Here 
     let result = res.data
+    console.log(result);
+    
 
     setWR(result.winRate)
     setProfit(result.totalProfit)
@@ -62,7 +64,7 @@ export default function Backtest() {
   }
 
 
-  
+
 
   return (
     <>
@@ -81,7 +83,7 @@ export default function Backtest() {
               </div>
               <div className="inp-box">
                 <label htmlFor='capital'>Select Symbol : </label>
-                <select  name="symbol" id="" required onChange={changeVal}>
+                <select name="symbol" id="" required onChange={changeVal}>
                   <option value="">Choose</option>
                   <option value="BTCUSDT">BTC</option>
                   <option value="ETHUSDT">ETH</option>
@@ -102,15 +104,15 @@ export default function Backtest() {
               </div>
               <div className="inp-box">
                 <label htmlFor='capital' >Enter Capital ($) : </label>
-                <input name='capital' type="number" min={1} required max={99999999} value={input.capital} onChange={changeVal}/>
+                <input name='capital' type="number" min={1} required max={99999999} value={input.capital} onChange={changeVal} />
               </div>
               <div className="inp-box">
                 <label htmlFor='position'>Position Size ($) : </label>
-                <input name='position' type="number" min={1} required max={99999999} value={input.position} onChange={changeVal}/>
+                <input name='position' type="number" min={1} required max={99999999} value={input.position} onChange={changeVal} />
               </div>
               <div className="inp-box">
                 <label htmlFor='interval'>Candles Amount  : </label>
-                <input name='interval' type="number" min={1} required max={99999999} value={input.interval} onChange={changeVal}/>
+                <input name='interval' type="number" min={1} required max={99999999} value={input.interval} onChange={changeVal} />
               </div>
               <div className="btn-box" id='btn' >
                 <button type='submit'>Start</button>
@@ -118,10 +120,10 @@ export default function Backtest() {
             </form>
           </div>
           <div className="result">
-              <img className={`loaderImg ${ loader ? "active" : ""}`} src={loaderImg} alt="" />
-              <div className={`${ loader ? "load-box" : ""}`}>
+            <img className={`loaderImg ${loader ? "active" : ""}`} src={loaderImg} alt="" />
+            <div className={`${loader ? "load-box" : ""}`}>
 
-              </div>
+            </div>
             <div className="res-box">
               <h1>Starting Balance</h1>
               <h2>{initialBalance}</h2>
