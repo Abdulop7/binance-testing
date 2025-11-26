@@ -48,42 +48,41 @@ async function ViewPrice(req, res) {
 
 
 async function morecandleFetch(req, res) {
+  let qty = parseInt(req.query.qty); // total candles wanted
+  let symbol = req.query.symbol;
+  let tf = req.query.tf;
 
-    let qty = req.query.qty;
-    let symbol = req.query.symbol;
-    let tf = req.query.tf;
-    let candleQty = qty / 1000
+  let allCandles = [];
+  let endTime = Date.now();
 
+  while (allCandles.length < qty) {
+    // fetch remaining candles up to 1000
+    const limit = Math.min(1000, qty - allCandles.length);
+    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}m&limit=${limit}&endTime=${endTime}`;
+    const { data } = await axios.get(url);
+    if (!data.length) break;
 
-    let allCandles = [];
-    let endTime = Date.now();
+    const candles = data.map(c => ({
+      openTime: c[0],
+      open: parseFloat(c[1]),
+      high: parseFloat(c[2]),
+      low: parseFloat(c[3]),
+      close: parseFloat(c[4]),
+      volume: parseFloat(c[5]),
+      closeTime: c[6],
+      quoteAssetVolume: parseFloat(c[7]),
+      numberOfTrades: c[8],
+      takerBuyBase: parseFloat(c[9]),
+      takerBuyQuote: parseFloat(c[10])
+    }));
 
-    for (let i = 0; i < candleQty; i++) { // 20 * 1000 = 20,000 candles
-        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}m&limit=1000&endTime=${endTime}`;
-        const { data } = await axios.get(url);
-        if (!data.length) break;
+    allCandles = [...candles, ...allCandles];
+    endTime = data[0][0] - 1; // move to previous batch
+  }
 
-        const candles = data.map(candle => ({
-            openTime: candle[0],
-            open: parseFloat(candle[1]),
-            high: parseFloat(candle[2]),
-            low: parseFloat(candle[3]),
-            close: parseFloat(candle[4]),
-            volume: parseFloat(candle[5]),
-            closeTime: candle[6],
-            quoteAssetVolume: parseFloat(candle[7]),
-            numberOfTrades: candle[8],
-            takerBuyBase: parseFloat(candle[9]),
-            takerBuyQuote: parseFloat(candle[10])
-        }));
-
-        // prepend to keep chronological order
-        allCandles = [...candles, ...allCandles];
-        endTime = data[0][0] - 1; // move to previous batch
-    }
-
-    res.send({ candles: allCandles });
+  res.send({ candles: allCandles });
 }
+
 
 async function getEma(req, res) {
     const result = await botrunner.calculateEmaSignal();
