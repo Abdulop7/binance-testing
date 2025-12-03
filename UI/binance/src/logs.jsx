@@ -85,8 +85,6 @@ export default function Logs() {
 
         elite_Weekend_WR: calculateWinrate(eliteWeekend) + "%",
         weekendTrades: eliteWeekend.length,
-
-
       });
 
       // --- Parameter Ranges to Test ---
@@ -165,7 +163,7 @@ export default function Logs() {
               const totalProfit = filtered.reduce((sum, t) => sum + (t.profit || 0), 0);
 
               // Only include combos with WR >= 70%
-              if (filtered.length >= 10 && wr >= 70) {
+              if (filtered.length >= 10 && wr >= 69) {
                 highWRCombos.push({
                   ATR: `${minATR}-${maxATR}`,
                   NY: useNY,

@@ -177,6 +177,7 @@ function updLastSignal(newSignal) {
 
 async function updateBotStatus(active, signal, inTrade) {
   try {
+
     await axios.post(`${process.env.backendURL}/bot/status`, { // WebUrl Here
       isActive: active,
       lastSignal: signal,
@@ -460,7 +461,7 @@ async function checkSignal() {
     await checkTPorSL(finalRest ? null : newSignal);
 
 
-        ////// The Reminders here 
+    ////// The Reminders here 
 
     try {
 
