@@ -20,6 +20,250 @@ async function getPrice() {
   return Fprice
 }
 
+async function findBestATRCombo() {
+  try {
+    console.log("🔍 Running ATR% Optimizer...");
+
+    // 1. Fetch all trades
+    const res = await axios.get(`${process.env.backendURL}/bot/all-trades`, {
+      headers: { Authorization: `Bearer A.saboor786` }
+    });
+
+    let trades = res.data || [];
+
+    // 2. Filter out invalid trades
+    trades = trades.filter(t => {
+      if (!t.time) return false;
+      const ts = new Date(t.time).getTime();
+      return !isNaN(ts);
+    });
+
+    // 3. Keep only last X days
+    const now = Date.now();
+    const xDaysAgo = now - (OPTIMIZER_DAYS * 24 * 60 * 60 * 1000);
+
+    trades = trades.filter(t => {
+      const ts = new Date(t.time).getTime();
+      return ts >= xDaysAgo;
+    });
+
+    console.log(`📊 Trades in last ${OPTIMIZER_DAYS} days: ${trades.length}`);
+
+    if (trades.length < MIN_TRADES_FOR_COMBO) {
+      console.warn(`⚠️ Not enough trades (${trades.length}) for optimization. Need at least ${MIN_TRADES_FOR_COMBO}.`);
+      return null;
+    }
+
+    // 4. Convert string fields to numbers
+    trades = trades.map(t => ({
+      ...t,
+      atr: typeof t.atr === 'string' ? parseFloat(t.atr) : t.atr,
+      entryPrice: typeof t.entryPrice === 'string' ? parseFloat(t.entryPrice) : t.entryPrice,
+      profit: typeof t.profit === 'string' ? parseFloat(t.profit) : t.profit,
+      slope: typeof t.slope === 'string' ? parseFloat(t.slope) : t.slope,
+    }));
+
+    // 5. Calculate ATR% for each trade
+    const tradesWithPct = trades.map(t => ({
+      ...t,
+      atrPct: t.entryPrice > 0 ? (t.atr / t.entryPrice) : 0
+    }));
+
+    // 6. Get valid ATR% values
+    const pctValues = tradesWithPct
+      .map(t => t.atrPct)
+      .filter(v => isFinite(v) && v > 0);
+
+    if (pctValues.length === 0) {
+      console.warn("⚠️ No valid ATR% values found.");
+      return null;
+    }
+
+    const minPct = Math.min(...pctValues);
+    const maxPct = Math.max(...pctValues);
+
+    console.log(`📈 ATR% Range in data: ${(minPct * 100).toFixed(4)}% - ${(maxPct * 100).toFixed(4)}%`);
+
+    // 7. Generate ATR% ranges to test
+    const step = Math.max((maxPct - minPct) / 40, 0.0003); // ~40 steps
+    const maxCombosCap = 2000;
+    let atrPercentRanges = [];
+
+    for (let start = minPct; start <= maxPct; start += step) {
+      for (let end = start + step; end <= maxPct + 1e-12; end += step) {
+        atrPercentRanges.push([start, end]);
+        if (atrPercentRanges.length >= maxCombosCap) break;
+      }
+      if (atrPercentRanges.length >= maxCombosCap) break;
+    }
+
+    console.log(`🔢 Testing ${atrPercentRanges.length} ATR% ranges...`);
+
+    // 8. Filter functions
+    const isNYSession = (t) => {
+      const date = new Date(t.time);
+      const utcHour = date.getUTCHours();
+      return utcHour >= 15 && utcHour < 22;
+    };
+
+    const isWeekday = (t) => {
+      const d = new Date(t.time).getUTCDay();
+      return d !== 0 && d !== 6;
+    };
+
+    const hasSlope = (t) => t.slope !== 0;
+
+    const calculateWinrate = (list) => {
+      const wins = list.filter(t => t.profit > 0).length;
+      const total = list.length;
+      return total > 0 ? (wins / total * 100) : 0;
+    };
+
+    // 9. Test all combos
+    const useNYOptions = [true, false];
+    const useWeekendOptions = [true, false];
+    const useSlopeOptions = [true, false];
+
+    let allCombos = [];
+
+    for (let [minPctRange, maxPctRange] of atrPercentRanges) {
+      for (let useNY of useNYOptions) {
+        for (let useWeekend of useWeekendOptions) {
+          for (let useSlope of useSlopeOptions) {
+
+            let filtered = tradesWithPct.filter(t =>
+              t.atrPct >= minPctRange && t.atrPct <= maxPctRange
+            );
+
+            if (useNY) filtered = filtered.filter(isNYSession);
+            if (useWeekend) filtered = filtered.filter(isWeekday);
+            if (useSlope) filtered = filtered.filter(hasSlope);
+
+            if (filtered.length < MIN_TRADES_FOR_COMBO) continue;
+
+            const wr = calculateWinrate(filtered);
+            const totalProfit = filtered.reduce((sum, t) => sum + (t.profit || 0), 0);
+
+
+            allCombos.push({
+              atrPctMin: minPctRange,
+              atrPctMax: maxPctRange,
+              useNY: useNY,
+              useWeekend: useWeekend,
+              useSlope: useSlope,
+              winrate: wr,
+              trades: filtered.length,
+              profit: totalProfit
+            });
+
+          }
+        }
+      }
+    }
+
+    console.log(`✅ Found ${allCombos.length} valid combos`);
+
+    if (allCombos.length === 0) {
+      console.warn("⚠️ No combos met the minimum thresholds.");
+      return null;
+    }
+
+    // 10. Sort combos: winrate → profit → trades
+    allCombos.sort((a, b) => {
+      const wrDiff = b.winrate - a.winrate;
+      if (Math.abs(wrDiff) > 0.01) return wrDiff;
+      const profitDiff = b.profit - a.profit;
+      if (Math.abs(profitDiff) > 0.01) return profitDiff;
+      return b.trades - a.trades;
+    });
+
+    // 11. Get best combo
+    const bestCombo = allCombos[0];
+
+    console.log("🏆 Best ATR% Combo Found:");
+    console.log(`   ATR%: ${(bestCombo.atrPctMin * 100).toFixed(3)}% - ${(bestCombo.atrPctMax * 100).toFixed(3)}%`);
+    console.log(`   NY Session: ${bestCombo.useNY}`);
+    console.log(`   Weekday Only: ${bestCombo.useWeekend}`);
+    console.log(`   Require Slope: ${bestCombo.useSlope}`);
+    console.log(`   Winrate: ${bestCombo.winrate.toFixed(2)}%`);
+    console.log(`   Trades: ${bestCombo.trades}`);
+    console.log(`   Profit: $${bestCombo.profit.toFixed(2)}`);
+
+    return bestCombo;
+
+  } catch (err) {
+    console.error("❌ Optimizer Error:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Get the best combo (from cache or fresh calculation)
+ */
+async function getBestCombo() {
+
+  console.log("🔄 Refreshing best combo...");
+  let cachedBestCombo = await findBestATRCombo();
+
+  return cachedBestCombo;
+}
+
+async function checkTradeConditions(atr, entryPrice, slope) {
+  const now = new Date();
+
+  // Calculate ATR%
+  const atrPct = entryPrice > 0 ? (atr / entryPrice) : 0;
+
+  // Get the best combo from optimizer
+  const bestCombo = await getBestCombo();
+
+  if (!bestCombo) {
+    console.log("⚠️ No optimized combo available - using fallback (allow all)");
+    return { allowed: true, reason: "No combo found - fallback mode", atrPct };
+  }
+
+  // 1. Check ATR% range
+  if (atrPct < bestCombo.atrPctMin || atrPct > bestCombo.atrPctMax) {
+    const reason = `ATR% ${(atrPct * 100).toFixed(4)}% outside optimized range [${(bestCombo.atrPctMin * 100).toFixed(3)}% - ${(bestCombo.atrPctMax * 100).toFixed(3)}%]`;
+    console.log(`❌ Trade blocked: ${reason}`);
+    return { allowed: false, reason, atrPct };
+  }
+
+  // 2. Check NY session if required
+  if (bestCombo.useNY) {
+    const utcHour = now.getUTCHours();
+    const isNYSession = utcHour >= 15 && utcHour < 22;
+    if (!isNYSession) {
+      const reason = `Not in NY session (UTC hour: ${utcHour}) - combo requires NY session`;
+      console.log(`❌ Trade blocked: ${reason}`);
+      return { allowed: false, reason, atrPct };
+    }
+  }
+
+  // 3. Check weekends if required
+  if (bestCombo.useWeekend) {
+    const dayUTC = now.getUTCDay();
+    if (dayUTC === 0 || dayUTC === 6) {
+      const reason = `Weekend trading disabled by optimized combo`;
+      console.log(`❌ Trade blocked: ${reason}`);
+      return { allowed: false, reason, atrPct };
+    }
+  }
+
+  // 4. Check slope if required
+  if (bestCombo.useSlope && slope === 0) {
+    const reason = `Slope is 0 - combo requires non-zero slope`;
+    console.log(`❌ Trade blocked: ${reason}`);
+    return { allowed: false, reason, atrPct };
+  }
+
+  console.log(`✅ Trade conditions passed (Optimized Combo):`);
+  console.log(`   ATR%: ${(atrPct * 100).toFixed(4)}% [Range: ${(bestCombo.atrPctMin * 100).toFixed(3)}% - ${(bestCombo.atrPctMax * 100).toFixed(3)}%]`);
+  console.log(`   Combo WR: ${bestCombo.winrate.toFixed(2)}%`);
+
+  return { allowed: true, reason: "All optimized conditions passed", atrPct };
+}
+
 async function calculateEmaSignal() {
   try {
 
@@ -76,6 +320,8 @@ let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
 let currentBalance = 1000
+const OPTIMIZER_DAYS = 10;          // Look back period
+const MIN_TRADES_FOR_COMBO = 5;     // Minimum trades for a combo to be valid
 
 // Track sent times to avoid duplicate sends
 let lastSent = {
@@ -242,6 +488,13 @@ async function placeOrder(signal, ema200) {
 
     const entryPrice = await getPrice();
 
+    const conditionCheck = await checkTradeConditions(atr, entryPrice, slope);
+
+    // if (!conditionCheck.allowed) {
+    //   console.log(`🚫 Order NOT placed for ${signal}: ${conditionCheck.reason}`);
+    //   return; // Exit without placing order
+    // }
+
     currentTP = 0.0085
     currentSL = getSL(atr)
     console.log(currentSL)
@@ -327,48 +580,48 @@ async function getBalance() {
 
 }
 
-async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
-  try {
-    const res = await axios.get(`${process.env.backendURL}/bot/all-trades`, {
-      headers: { Authorization: `Bearer A.saboor786` }
-    });
+// async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
+//   try {
+//     const res = await axios.get(`${process.env.backendURL}/bot/all-trades`, {
+//       headers: { Authorization: `Bearer A.saboor786` }
+//     });
 
-    const allTrades = res.data;
+//     const allTrades = res.data;
 
-    // Get today’s PKT date string (like "2025-07-15")
-    const now = new Date();
-    const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-    const todayStr = pkNow.toISOString().slice(0, 10);
+//     // Get today’s PKT date string (like "2025-07-15")
+//     const now = new Date();
+//     const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+//     const todayStr = pkNow.toISOString().slice(0, 10);
 
-    // Filter today's trades using PKT-based trade time
-    const todaysTrades = allTrades
-      .filter(trade => {
-        const tradeDate = new Date(new Date(trade.time).getTime() + 5 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10);
-        return tradeDate === todayStr;
-      })
-      .sort((a, b) => a.tradeNumber - b.tradeNumber); // Sort ascending
+//     // Filter today's trades using PKT-based trade time
+//     const todaysTrades = allTrades
+//       .filter(trade => {
+//         const tradeDate = new Date(new Date(trade.time).getTime() + 5 * 60 * 60 * 1000)
+//           .toISOString()
+//           .slice(0, 10);
+//         return tradeDate === todayStr;
+//       })
+//       .sort((a, b) => a.tradeNumber - b.tradeNumber); // Sort ascending
 
-    // Cumulative equity calculation
-    let equity = 0;
-    let minEquity = 0;
+//     // Cumulative equity calculation
+//     let equity = 0;
+//     let minEquity = 0;
 
-    for (const trade of todaysTrades) {
-      const profit = parseFloat(trade.profit) || 0;
-      equity += profit;
-      minEquity = Math.min(minEquity, equity);
-    }
+//     for (const trade of todaysTrades) {
+//       const profit = parseFloat(trade.profit) || 0;
+//       equity += profit;
+//       minEquity = Math.min(minEquity, equity);
+//     }
 
-    const drawdown = Math.abs(minEquity);
+//     const drawdown = Math.abs(minEquity);
 
-    return drawdown >= maxDrawdownLimit;
+//     return drawdown >= maxDrawdownLimit;
 
-  } catch (err) {
-    console.error("❌ Error in isMaxDrawdownHit:", err.message);
-    return false;
-  }
-}
+//   } catch (err) {
+//     console.error("❌ Error in isMaxDrawdownHit:", err.message);
+//     return false;
+//   }
+// }
 
 
 async function signalChanged(newSignal, restStatus, ema200) {
@@ -424,7 +677,7 @@ async function checkSignal() {
     const pkMinute = pkDate.getMinutes();
     const pkDay = pkDate.getDay(); // ✅ correct
     const newsPause = await isPausedDueToNews();
-    const drawdownHit = await isMaxDrawdownHit();
+    // const drawdownHit = await isMaxDrawdownHit();
 
     const RestDay = pkDay === 0 || pkDay === 6; // Sunday or Saturday
     let pausedOnNews = newsPause;

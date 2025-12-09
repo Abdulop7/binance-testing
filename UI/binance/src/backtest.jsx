@@ -345,10 +345,37 @@ export default function Backtest() {
         { headers: { Authorization: `Bearer A.saboor786` } }
       );
 
-      const candles = res.data.candles;
+      let candles = res.data.candles;
+
+      // Save original
+      const originalCandles = candles;
+
+      // Generate 89 dummy candles BEFORE first real candle
+      let extraCandles = [];
+      const firstTime = originalCandles[0].openTime;
+
+      for (let i = 89; i > 0; i--) {
+        const openT = firstTime - i * input.tf * 60 * 1000;
+
+        extraCandles.push({
+          openTime: openT,
+          closeTime: openT + input.tf * 60 * 1000,
+          open: originalCandles[0].open,
+          high: originalCandles[0].high,
+          low: originalCandles[0].low,
+          close: originalCandles[0].close,
+        });
+      }
+
       if (!Array.isArray(candles) || candles.length === 0) throw new Error("No candles returned");
 
       setInitialBalance(parseFloat(input.capital || 0) + " $");
+
+
+      // Use PRE-candles + original candles for EMA
+      candles = [...extraCandles, ...originalCandles];
+
+
 
       // 1) compute EMAs and align them
       const rawEmaValues = calculateEMAs(candles, [5, 13, 34, 89]);
@@ -389,13 +416,30 @@ export default function Backtest() {
         const statusRow = result.fullLog.find((f) => f.candleIndex === c.index);
         return {
           ...c,
-          status: statusRow?.status || "WAIT", // default if no active trade on that candle
+          status: statusRow?.status || "N/A", // default if no active trade on that candle
         };
       });
 
+      const removedCount = extraCandles.length;
+
+      // Filter for UI candle table
+      const filteredCandleLog = mergedCandleLog.filter(c => c.index >= removedCount);
+
+      // Filter full log for bottom full table
+      const filteredFullLog = result.fullLog.filter(c => c.candleIndex >= removedCount);
+
+      // Fix trade indexes
+      result.trades = result.trades.map(t => ({
+        ...t,
+        entryIndex: t.entryIndex - removedCount,
+        exitIndex: t.exitIndex - removedCount,
+      }));
+
+
+
       // Now this log has: signal + status + EMAs etc.
-      setCandleLog(mergedCandleLog);
-      setFullLog(result.fullLog);
+      setCandleLog(filteredCandleLog);
+      setFullLog(filteredFullLog);
 
       // Stats
       setWR(result.winRate + "%");
@@ -553,12 +597,12 @@ export default function Backtest() {
                   {/* STATUS (FIXED) */}
                   <td
                     className={`px-4 py-2 font-bold ${c.status?.includes("ENTRY")
-                        ? "text-green-400"
-                        : c.status?.includes("EXIT")
-                          ? "text-red-400"
-                          : c.status === "IN TRADE"
-                            ? "text-yellow-400"
-                            : "text-gray-500"
+                      ? "text-green-400"
+                      : c.status?.includes("EXIT")
+                        ? "text-red-400"
+                        : c.status === "IN TRADE"
+                          ? "text-yellow-400"
+                          : "text-gray-500"
                       }`}
                   >
                     {c.status}
