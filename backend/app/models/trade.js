@@ -5,6 +5,7 @@ const tradeSchema = new mongoose.Schema({
     entryTime: Date,
     entryPrice: Number,
     atr: Number,
+    real:Boolean,
     slope:Number,
     type: String,
     positionSize: Number,

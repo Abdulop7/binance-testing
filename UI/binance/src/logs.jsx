@@ -7,8 +7,8 @@ let testing = true;
 // ============================================
 // MANUAL ATR% RANGE SETTINGS (set your values here)
 // ============================================
-const MANUAL_ATR_PCT_MIN = 0.00508;   // e.g., 0.001 = 0.1%
-const MANUAL_ATR_PCT_MAX = 0.00708;   // e.g., 0.005 = 0.5%
+const MANUAL_ATR_PCT_MIN = 0.00379;   // e.g., 0.001 = 0.1%
+const MANUAL_ATR_PCT_MAX = 0.00469;   // e.g., 0.005 = 0.5%
 const USE_NY_SESSION = false;        // true = only NY session trades
 const USE_WEEKEND_FILTER = true;    // true = exclude weekends
 const USE_SLOPE_FILTER = true;      // true = only non-zero slope trades
@@ -30,7 +30,8 @@ export default function Logs() {
 
     async function fetchTrades() {
       try {
-        let res = await axios.get(`${backendUrl}/bot/all-trades`,
+        // let res = await axios.get(`${backendUrl}/bot/all-trades`,
+        let res = await axios.get(`https://binance-testing-jkbldg.fly.dev/bot/all-trades`,
           {
             headers: {
               Authorization: `Bearer A.saboor786`
@@ -49,12 +50,12 @@ export default function Logs() {
         // --- CONFIGURABLE DATE FILTERS ---
 
         // Set these from UI or manually:
-        let useCustomRange = true;              // if false → uses last X days
+        let useCustomRange = false;              // if false → uses last X days
         let customStartDate = "2025-10-30";     // yyyy-mm-dd
         let customEndDate = "2025-11-10";       // yyyy-mm-dd  (optional)
 
         // Number of days if not using custom range
-        const LAST_X_DAYS = 10;
+        const LAST_X_DAYS = testing ? 10 : 999999;
 
 
         // --- DATE FILTER LOGIC ---
@@ -234,7 +235,7 @@ export default function Logs() {
           console.log(`Generated ${atrPercentRanges.length} ATR% ranges (capped at ${maxCombosCap}).`);
 
           // thresholds for ATR% combos (you can tune these)
-          const MIN_TRADES_PCT = 6;
+          const MIN_TRADES_PCT = 5;
           const MIN_WR_PCT = 55;
 
           // evaluate ATR% combos
