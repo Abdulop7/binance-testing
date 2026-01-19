@@ -11,7 +11,11 @@ let TradeHistorySchema = new Schema({
     type: String,
     positionSize: Number,
     positionSizeUSD: Number,
-    leverage: Number
+    leverage: Number,
+    mfe:Number,
+    mae:Number,
+    mfePercent:Number,
+    maePercent:Number
 })
 
 module.exports = mongoose.model("TradeHistory", TradeHistorySchema)
