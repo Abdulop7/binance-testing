@@ -2,6 +2,7 @@ const axios = require("axios");
 
 const botrunner = require("../../botrunner");
 const BotStatus = require('../models/botStatus')
+const LastTrade = require('../models/lastTrade')
 const TradeHistory = require("../models/tradeHistory");
 const { ATR } = require('technicalindicators');
 const NewsEvent = require("../models/newsEvent");
@@ -48,39 +49,39 @@ async function ViewPrice(req, res) {
 
 
 async function morecandleFetch(req, res) {
-  let qty = parseInt(req.query.qty); // total candles wanted
-  let symbol = req.query.symbol;
-  let tf = req.query.tf;
+    let qty = parseInt(req.query.qty); // total candles wanted
+    let symbol = req.query.symbol;
+    let tf = req.query.tf;
 
-  let allCandles = [];
-  let endTime = Date.now();
+    let allCandles = [];
+    let endTime = Date.now();
 
-  while (allCandles.length < qty) {
-    // fetch remaining candles up to 1000
-    const limit = Math.min(1000, qty - allCandles.length);
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}m&limit=${limit}&endTime=${endTime}`;
-    const { data } = await axios.get(url);
-    if (!data.length) break;
+    while (allCandles.length < qty) {
+        // fetch remaining candles up to 1000
+        const limit = Math.min(1000, qty - allCandles.length);
+        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}m&limit=${limit}&endTime=${endTime}`;
+        const { data } = await axios.get(url);
+        if (!data.length) break;
 
-    const candles = data.map(c => ({
-      openTime: c[0],
-      open: parseFloat(c[1]),
-      high: parseFloat(c[2]),
-      low: parseFloat(c[3]),
-      close: parseFloat(c[4]),
-      volume: parseFloat(c[5]),
-      closeTime: c[6],
-      quoteAssetVolume: parseFloat(c[7]),
-      numberOfTrades: c[8],
-      takerBuyBase: parseFloat(c[9]),
-      takerBuyQuote: parseFloat(c[10])
-    }));
+        const candles = data.map(c => ({
+            openTime: c[0],
+            open: parseFloat(c[1]),
+            high: parseFloat(c[2]),
+            low: parseFloat(c[3]),
+            close: parseFloat(c[4]),
+            volume: parseFloat(c[5]),
+            closeTime: c[6],
+            quoteAssetVolume: parseFloat(c[7]),
+            numberOfTrades: c[8],
+            takerBuyBase: parseFloat(c[9]),
+            takerBuyQuote: parseFloat(c[10])
+        }));
 
-    allCandles = [...candles, ...allCandles];
-    endTime = data[0][0] - 1; // move to previous batch
-  }
+        allCandles = [...candles, ...allCandles];
+        endTime = data[0][0] - 1; // move to previous batch
+    }
 
-  res.send({ candles: allCandles });
+    res.send({ candles: allCandles });
 }
 
 
@@ -230,8 +231,20 @@ async function getBotStatus(req, res) {
 
 }
 
+async function getLastTrade(req, res) {
+
+    try {
+        const status = await LastTrade.findOne(); // assuming single bot
+        if (!status) return res.status(404).json({ msg: "No status found" });
+        res.json(status);
+    } catch (err) {
+        res.status(500).json({ msg: "Server error", error: err });
+    }
+
+}
+
 async function updBotStatus(req, res) {
-    const { isActive, lastSignal, inTrade } = req.body; // ✅ Accept inTrade from request
+    const { isActive, lastSignal, inTrade } = req.body;
 
     try {
         let status = await BotStatus.findOne();
@@ -247,6 +260,7 @@ async function updBotStatus(req, res) {
             status.isActive = isActive;
             status.startedAt = isActive ? new Date() : null;
 
+            // ✅ Only update if provided
             if (lastSignal !== undefined) {
                 status.lastSignal = lastSignal;
             }
@@ -261,6 +275,49 @@ async function updBotStatus(req, res) {
     } catch (err) {
         res.status(500).json({ msg: "Update failed", error: err });
     }
+}
+
+async function updLastTrade(req, res) {
+
+    const { LastTradeTime, lastTradeSignal, lastTradePrice, lastTradeObjectId } = req.body;
+
+    try {
+        let status = await LastTrade.findOne();
+
+        if (!status) {
+            status = new LastTrade({
+                LastTradeTime: LastTradeTime, // ✅ Initialize if provided
+                lastTradeSignal: lastTradeSignal, // ✅ Initialize if provided
+                lastTradePrice: lastTradePrice, // ✅ Initialize if provided
+                lastTradeObjectId: lastTradeObjectId, // ✅ Initialize if provided
+            });
+        } else {
+
+            // ✅ Only update LastTradeTime if provided
+            if (LastTradeTime !== undefined) {
+                status.LastTradeTime = LastTradeTime;
+            }
+
+            // ✅ Only update lastTradeSignal if provided
+            if (lastTradeSignal !== undefined) {
+                status.lastTradeSignal = lastTradeSignal;
+            }
+
+            if (lastTradePrice !== undefined) {
+                status.lastTradePrice = lastTradePrice;
+            }
+
+            if (lastTradeObjectId !== undefined) {
+                status.lastTradeObjectId = lastTradeObjectId;
+            }
+        }
+
+        await status.save();
+        res.json({ msg: "Last Trade updated", status });
+    } catch (err) {
+        res.status(500).json({ msg: "Update failed", error: err });
+    }
+
 }
 
 async function StartBot(req, res) {
@@ -306,11 +363,12 @@ async function StopBot(req, res) {
 
 async function SaveTrade(req, res) {
 
-    const { signal, time, price, positionSize, positionSizeUSD, slope, leverage, candleTimestamp, atr } = req.body;
+    const { signal, time, price, positionSize, positionSizeUSD, slope, leverage, candleTimestamp, atr, real } = req.body;
     activeTrade = {
         entryTime: time,
         entryPrice: price,
         atr: atr,
+        real: real,
         slope: slope,
         type: signal,
         positionSize: positionSize,
@@ -385,11 +443,61 @@ async function SaveHistory(req, res) {
         positionSizeUSD: positionSizeUSD,
         leverage: leverage
     });
-
     await history.save();
 
-    res.status(200).json({ success: true, message: "Trade saved" });
+    // Get the inserted document's _id
+    const tradeId = history._id;
 
+    console.log(`Trade Id sending Via Save History is = ${tradeId}`);
+    
+
+    res.status(200).json({ success: true, message: "Trade saved", tradeId: tradeId.toString() });
+
+}
+
+async function UpdateTradeHistoryMFE(req, res) {
+    try {
+        const { tradeId, mfe, mae, mfePercent, maePercent } = req.body;
+
+        // ✅ Find and update the trade by ObjectId
+        const updatedTrade = await TradeHistory.findByIdAndUpdate(
+            tradeId,
+            {
+                $set: {
+                    mfe: mfe ?? null,
+                    mae: mae ?? null,
+                    mfePercent: mfePercent ?? null,
+                    maePercent: maePercent ?? null
+                }
+            },
+            {
+                new: true, // Return the updated document
+                runValidators: true // Run schema validators
+            }
+        );
+
+        // ✅ Check if trade was found
+        if (!updatedTrade) {
+            return res.status(404).json({
+                success: false,
+                message: "Trade not found with the provided ID"
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Trade updated with MFE/MAE data",
+            trade: updatedTrade
+        });
+
+    } catch (err) {
+        console.error("Error updating trade history:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to update trade",
+            error: err.message
+        });
+    }
 }
 
 async function AllTrades(req, res) {
@@ -454,4 +562,4 @@ async function subscribe(req, res) {
     res.status(201).json({});
 }
 
-module.exports = { doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe }
+module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe }

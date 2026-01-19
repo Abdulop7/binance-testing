@@ -15,6 +15,67 @@ async function getPrice() {
   return Fprice
 }
 
+async function calculateMFEandMAE(entryPrice, entryTimestamp, type) {
+  // MFE = Maximum Favourable Movement (using candle CLOSE)
+  // MAE = Maximum Adverse Excursion (using candle CLOSE)
+
+  try {
+    const symbol = process.env.symbol;
+
+    // Convert timestamps to milliseconds
+    const fromMs = new Date(entryTimestamp).getTime();
+    const toMs = Date.now();
+
+    // Fetch klines (candles): every 3m candle from entry to now
+    const limit = Math.ceil((toMs - fromMs) / (3 * 60 * 1000)) + 1;
+    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=3m&startTime=${fromMs}&endTime=${toMs}&limit=${limit}`;
+
+    const response = await axios.get(url);
+    const klines = response.data;
+
+    if (!klines || klines.length === 0) {
+      console.log("No candles found since entry.");
+      return null;
+    }
+
+    // Extract CLOSE prices from each candle (index 4)
+    const closes = klines.map(k => parseFloat(k[4]));
+
+    // Find highest and lowest close prices
+    const maxClose = Math.max(...closes);
+    const minClose = Math.min(...closes);
+
+    let mfe = 0, mae = 0;
+
+    if (type === "BUY") {
+      // For BUY: MFE = highest close above entry, MAE = lowest close below entry
+      mfe = (maxClose - entryPrice) / entryPrice;
+      mae = (entryPrice - minClose) / entryPrice;
+    } else if (type === "SELL") {
+      // For SELL: MFE = lowest close below entry, MAE = highest close above entry
+      mfe = (entryPrice - minClose) / entryPrice;
+      mae = (maxClose - entryPrice) / entryPrice;
+    }
+
+    // Ensure MFE and MAE are not negative
+    mfe = Math.max(mfe, 0);
+    mae = Math.max(mae, 0);
+
+    return {
+      mfe: parseFloat(mfe.toFixed(6)), // decimal (e.g., 0.0035 = 0.35%)
+      mae: parseFloat(mae.toFixed(6)),
+      mfePercent: (mfe * 100).toFixed(3),
+      maePercent: (mae * 100).toFixed(3),
+      maxClose,
+      minClose
+    };
+
+  } catch (err) {
+    console.error("Error calculating MFE/MAE:", err.message);
+    return null;
+  }
+}
+
 
 async function calculateEmaSignal() {
   try {
@@ -113,38 +174,19 @@ async function setLastTradeSignal(signal) {
   lastTradeSignal = signal;
 
 }
-async function isPausedDueToNews() {
-  try {
-    const res = await axios.get(`${process.env.backendURL}/bot/show-news`,
-      {
-        headers: {
-          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
-        }
-      }); // Replace with your news fetch URL
-    const events = res.data;
 
-    const now = new Date();
-
-    for (const event of events) {
-      const stop = new Date(event.stopTime);
-      const resume = new Date(event.resumeTime);
-      if (now >= stop && now < resume) {
-        console.log(`⛔ Bot paused due to ${event.type} news `);
-        return true;
-      }
-    }
-
-    return false;
-
-  } catch (err) {
-    console.error("Failed to check news events:", err.message);
-    return false;
-  }
-}
 
 function updLastSignal(newSignal) {
   lastSignal = newSignal;
 }
+
+function SetLastDetails(signal, time, price, objectId) {
+  prevTradeType = signal;
+  prevTradeTime = time;
+  prevTradePrice = price;
+  prevTradeObjectId = objectId ? objectId : null;
+}
+
 
 
 async function updateBotStatus(active, signal, inTrade) {
@@ -165,6 +207,28 @@ async function updateBotStatus(active, signal, inTrade) {
   }
 }
 
+async function updateLastTrade(lastTradeSignal, LastTradeTime, lastTradePrice, lastTradeObjectId) {
+  try {
+    await axios.post(`${process.env.backendURL}/bot/save-last`, { // WebUrl Here
+
+      lastTradeSignal: lastTradeSignal ? lastTradeSignal : null,
+      LastTradeTime: LastTradeTime ? LastTradeTime : null,
+      lastTradePrice: lastTradePrice ? lastTradePrice : null,
+      lastTradeObjectId: lastTradeObjectId ? lastTradeObjectId : null
+    },
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      });
+
+
+  } catch (err) {
+    console.error("Failed to update Last Trade:", err.message);
+  }
+
+}
+
 async function getBotStatusFromDB() {
   try {
     const res = await axios.get(`${process.env.backendURL}/bot/status`,
@@ -176,6 +240,21 @@ async function getBotStatusFromDB() {
     return res.data;
   } catch (err) {
     console.error("Failed to fetch bot status from DB:", err.message);
+    return { isActive: false, lastSignal: null, inTrade: false };
+  }
+}
+
+async function getLastTradeFromDB() {
+  try {
+    const res = await axios.get(`${process.env.backendURL}/bot/get-last`,
+      {
+        headers: {
+          Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+        }
+      }); // WebUrl here
+    return res.data;
+  } catch (err) {
+    console.error("Failed to fetch Last Trade from DB:", err.message);
     return { isActive: false, lastSignal: null, inTrade: false };
   }
 }
@@ -251,6 +330,11 @@ async function placeOrder(signal, ema200) {
       });
 
     await updateBotStatus(true, signal, true); // now inTrade is true
+
+
+    await updateLastTrade(signal, new Date().toISOString(), entryPrice)
+
+    SetLastDetails(signal, new Date().toISOString(), entryPrice);
 
   }
   catch (err) {
@@ -356,27 +440,23 @@ async function signalChanged(newSignal, restStatus, ema200) {
     await updateBotStatus(true, newSignal, inTrade);
 
   } else if (!inTrade) {
+
+    if (prevTradeObjectId && newSignal !== "WAIT") await handleMfeandMea(prevTradePrice, prevTradeTime, prevTradeType);
+
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
-
-    if (restStatus) {
-      console.log('Bot is in Rest. Cant open Trade');
-    } else {
-      await placeOrder(newSignal, ema200);
-    }
+    await placeOrder(newSignal, ema200);
 
   } else if (inTrade && newSignal != lastTradeSignal) {
+
+    if (prevTradeObjectId && newSignal !== "WAIT") await handleMfeandMea(prevTradePrice, prevTradeTime, prevTradeType);
+
     await checkTPorSL(newSignal)
     console.log(`Signal changed: ${lastSignal} → ${newSignal}`);
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
-
-    if (restStatus) {
-      console.log('Bot is in Rest. Cant open Trade');
-    } else {
-      await placeOrder(newSignal);
-    }
+    await placeOrder(newSignal);
 
   }
   else if (inTrade) {
@@ -384,7 +464,41 @@ async function signalChanged(newSignal, restStatus, ema200) {
     lastSignal = newSignal;
     await updateBotStatus(true, newSignal, inTrade);
 
+    if (prevTradeObjectId && newSignal !== "WAIT") await handleMfeandMea(prevTradePrice, prevTradeTime, prevTradeType);
+
   }
+}
+
+async function handleMfeandMea(prevTradePrice, prevTradeTime, prevTradeType) {
+
+  try {
+    console.log(`Handle Mfe Running ✅`);
+
+    const excursion = await calculateMFEandMAE(prevTradePrice, prevTradeTime, prevTradeType);
+
+    await axios.post(
+      `${process.env.backendURL}/bot/upd-history`,
+      {
+        tradeId: prevTradeObjectId, // from earlier save
+        mfe: excursion.mfe,
+        mae: excursion.mae,
+        mfePercent: excursion.mfePercent,
+        maePercent: excursion.maePercent
+      },
+      {
+        headers: { Authorization: `Bearer A.saboor786` }
+      }
+    );
+
+    await updateLastTrade(null, null, null, null)
+    SetLastDetails(null, null, null, null)
+
+  }
+  catch (err) {
+    const msg = err?.response?.data?.msg || err.message || "Unknown error";
+    console.error(`❌ Handle MFE Error: ${msg}`);
+  }
+
 }
 
 async function checkSignal() {
@@ -528,6 +642,7 @@ async function startLoop() {
 async function stopLoop() {
   try {
     clearInterval(intervalRef);
+    SetLastDetails(null, null, null, null)
     intervalRef = null;
     lastSignal = null;
     lastTradeSignal = null;
@@ -540,7 +655,7 @@ async function stopLoop() {
       });
 
     if (res?.data) {
-      // await closePosition('SUIUSDT');
+      await closePosition(symbol);
       await axios.post(`${process.env.backendURL}/bot/clear-trade`,
         {},
         {
@@ -552,11 +667,14 @@ async function stopLoop() {
     }
 
     await updateBotStatus(false, null, false);
+    await updateLastTrade(null, null, null, null)
+
     console.log("Bot stopped.");
 
   } catch (err) {
     console.error("Error in stopLoop:", err.response?.status, err.message);
     await updateBotStatus(false, null, false);
+    await updateLastTrade(null, null, null, null)
     console.log("Bot force-stopped due to error.");
   }
 }
@@ -695,7 +813,7 @@ async function checkTPorSL(lastSignal) {
         tradeCount++;
 
         // Save trade history
-        await axios.post(`${process.env.backendURL}/bot/save-history`, { // WebUrl Here
+        const historyResponse = await axios.post(`${process.env.backendURL}/bot/save-history`, { // WebUrl Here
           profit: profitDollars.toFixed(2),
           entryPrice: entryPrice,
           atr: atr,
@@ -712,6 +830,11 @@ async function checkTPorSL(lastSignal) {
               Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
             }
           });
+        const savedTradeId = historyResponse.data.tradeId;        
+        
+
+        await updateLastTrade(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)
+        SetLastDetails(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)
 
         // Clear active trade
         await updateBotStatus(true, lastSignal, false);
@@ -929,5 +1052,7 @@ module.exports = {
   setTpSl,
   getPrice,
   setLastTradeSignal,
-  saveSubscription
+  saveSubscription,
+  getLastTradeFromDB,
+  SetLastDetails
 };

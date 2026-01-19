@@ -1,5 +1,5 @@
 const express = require("express");
-const {  doBacktest, getEma, morecandleFetch, ViewPrice, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory,AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe } = require("../controllers/botController");
+const {  doBacktest, getEma, morecandleFetch, ViewPrice, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory,AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, updLastTrade, getLastTrade, UpdateTradeHistoryMFE } = require("../controllers/botController");
 const { getFuturesBalance } = require("../../botrunner");
 
 let BotRouter = express.Router()
@@ -14,7 +14,13 @@ BotRouter.get("/backtest", doBacktest)
 
 BotRouter.get("/status",getBotStatus)
 
+BotRouter.get("/get-last",getLastTrade)
+
 BotRouter.post("/status",updBotStatus)
+
+BotRouter.post("/upd-history",UpdateTradeHistoryMFE)
+
+BotRouter.post("/save-last",updLastTrade)
 
 BotRouter.post("/start-bot",StartBot)
 

@@ -9,9 +9,24 @@ app.use(express.urlencoded({ extended: true }));
 const port =  5000; // ✅ right
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
-const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, calculateEmaSignal, setTpSl, setLastTradeSignal } = require('./botrunner.js');
+const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, calculateEmaSignal, setTpSl, setLastTradeSignal, getLastTradeFromDB, SetLastDetails } = require('./botrunner.js');
 const { startPriceSocket, startCandleSocket, prefillCandles } = require('./binanceWebSocket.js');
+let symbol = process.env.symbol;
 
+process.on("SIGINT", () => {
+  console.log("Received SIGINT, converting to failure to force restart 💥");
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🧨 Unhandled Rejection:', reason);
+  process.exit(1); // PM2 will restart
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('💥 Uncaught Exception:', err);
+  process.exit(1); // PM2 will restart
+});
 
 
 app.use((req, res, next) => {
@@ -42,13 +57,14 @@ mongoose.connect(process.env.DbUrl).then(() => {
   app.listen(port, "0.0.0.0",() => {
     console.log("Server is Running on:", port);
 
-    prefillCandles("SOLUSDT", "3m", 1000);
-    startPriceSocket("solusdt");
-    startCandleSocket("solusdt");
+    prefillCandles(symbol, "3m", 1000);
+    startPriceSocket(symbol.toLowerCase());
+    startCandleSocket(symbol.toLowerCase());
     // Delay initialization logic by 3 seconds
     setTimeout(async () => {
       try {
         const { isActive, inTrade } = await getBotStatusFromDB();
+        const { lastTradeObjectId, lastTradePrice,LastTradeTime,lastTradeSignal } = await getLastTradeFromDB();
         console.log(`Bot isActive:${isActive}`);
 
         if (isActive) {
@@ -58,6 +74,12 @@ mongoose.connect(process.env.DbUrl).then(() => {
           const newSignal = res.msg.signal;
           console.log("✅ Last Signal Registered: ", newSignal);
           updLastSignal(newSignal);
+
+          if(lastTradeSignal){ 
+            SetLastDetails(lastTradeSignal,LastTradeTime,lastTradePrice,lastTradeObjectId);
+            console.log("Last Trade Details Registered ✅");
+            
+          }
 
           await updateBotStatus(true, newSignal, inTrade);
 
@@ -116,14 +138,4 @@ mongoose.connect(process.env.DbUrl).then(() => {
       }
     }, 1000 * 30); // 30-second delay
   });
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('🧨 Unhandled Rejection:', reason);
-  process.exit(1); // PM2 will restart
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('💥 Uncaught Exception:', err);
-  process.exit(1); // PM2 will restart
 });
