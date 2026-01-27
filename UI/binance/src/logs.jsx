@@ -14,10 +14,10 @@ const MANUAL_FILTER_MODE = 'RAW_ATR';
 // const MANUAL_ATR_PCT_MIN = 0.00046;   // e.g., 0.001 = 0.1%
 // const MANUAL_ATR_PCT_MAX = 0.00221;   // e.g., 0.005 = 0.5%
 
-const MANUAL_ATR_RAW_MIN = 0.55;
-const MANUAL_ATR_RAW_MAX = 0.95;
+const MANUAL_ATR_RAW_MIN = 0.5;
+const MANUAL_ATR_RAW_MAX = 0.8;
 
-const USE_NY_SESSION = false;        // true = only NY session trades
+const USE_NY_SESSION = true;        // true = only NY session trades
 const USE_WEEKEND_FILTER = true;    // true = exclude weekends
 const USE_SLOPE_FILTER = true;      // true = only non-zero slope trades
 // ============================================
@@ -29,7 +29,8 @@ function isNewYorkSession(time) {
 }
 
 export default function Logs() {
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  // const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  const backendUrl = "https://binance-testing.fly.dev";
 
   let [trades, setTrades] = useState([])
   let [tProfit, setTprofit] = useState("")
@@ -38,8 +39,8 @@ export default function Logs() {
 
     async function fetchTrades() {
       try {
-        // let res = await axios.get(`${backendUrl}/bot/all-trades`,
-        let res = await axios.get(`https://bnb-testing.onrender.com/bot/all-trades`,
+        // let res = await axios.get(`https://binance-testing.fly.dev/bot/all-trades`,
+        let res = await axios.get(`${backendUrl}/bot/all-trades`,
           {
             headers: {
               Authorization: `Bearer A.saboor786`
@@ -59,11 +60,11 @@ export default function Logs() {
 
         // Set these from UI or manually:
         let useCustomRange = true;              // if false → uses last X days
-        let customStartDate = "2025-12-03";     // yyyy-mm-dd
-        let customEndDate = "2026-1-03";       // yyyy-mm-dd  (optional)
+        // let customStartDate = "2025-12-18";     // yyyy-mm-dd
+        // let customEndDate = "2026-1-18";       // yyyy-mm-dd  (optional)
 
-        // let customStartDate = "2025-12-20";     // yyyy-mm-dd
-        // let customEndDate = "2025-12-30";       // yyyy-mm-dd  (optional)
+        let customStartDate = "2026-1-18";     // yyyy-mm-dd
+        let customEndDate = "2026-1-25";       // yyyy-mm-dd  (optional)
 
         // Number of days if not using custom range
         const LAST_X_DAYS = testing ? 60 : 999999;
@@ -772,7 +773,7 @@ export default function Logs() {
                 const wr = parseFloat(calculateWinrate(filtered));
                 const totalProfit = filtered.reduce((sum, t) => sum + (t.profit || 0), 0);
 
-                if (filtered.length >= 20 && wr >= 50) {
+                if (filtered.length >= 5 && wr >= 50) {
                   highWRCombos.push({
                     ATR: `${minATR}-${maxATR}`,
                     NY: useNY,

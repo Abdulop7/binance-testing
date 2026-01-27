@@ -95,7 +95,7 @@ function startCandleSocket(symbol = "solusdt") {
 
 // --------------- PREFILL ------------------
 
-async function prefillCandles(symbol = "SOLUSDT", interval = "3m", limit = 1000) {
+async function prefillCandles(symbol = "SOLUSDT", interval = "3m", limit = 100) {
   try {
     const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
     const { data } = await axios.get(url);

@@ -20,30 +20,14 @@ async function calculateMFEandMAE(entryPrice, entryTimestamp, type) {
   // MAE = Maximum Adverse Excursion (using candle CLOSE)
 
   try {
-    const symbol = process.env.symbol;
-
-    // Convert timestamps to milliseconds
-    const fromMs = new Date(entryTimestamp).getTime();
-    const toMs = Date.now();
-
-    // Fetch klines (candles): every 3m candle from entry to now
-    const limit = Math.ceil((toMs - fromMs) / (3 * 60 * 1000)) + 1;
-    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=3m&startTime=${fromMs}&endTime=${toMs}&limit=${limit}`;
-
-    const response = await axios.get(url);
-    const klines = response.data;
-
-    if (!klines || klines.length === 0) {
-      console.log("No candles found since entry.");
+    if (tradeCandleCloses.length === 0 || prevTradePrice === null) {
+      console.log("⚠️ No candle data to calculate MFE/MAE");
       return null;
     }
 
-    // Extract CLOSE prices from each candle (index 4)
-    const closes = klines.map(k => parseFloat(k[4]));
-
     // Find highest and lowest close prices
-    const maxClose = Math.max(...closes);
-    const minClose = Math.min(...closes);
+    const maxClose = Math.max(...tradeCandleCloses);
+    const minClose = Math.min(...tradeCandleCloses);
 
     let mfe = 0, mae = 0;
 
@@ -135,6 +119,7 @@ let tradeCount = 0; // Global scope (top of the script)
 let currentBalance = 1000
 const OPTIMIZER_DAYS = 10;          // Look back period
 const MIN_TRADES_FOR_COMBO = 5;     // Minimum trades for a combo to be valid
+let tradeCandleCloses = []; // Stores candle closes while trade is open
 
 // Track sent times to avoid duplicate sends
 let lastSent = {
@@ -227,6 +212,87 @@ async function updateLastTrade(lastTradeSignal, LastTradeTime, lastTradePrice, l
     console.error("Failed to update Last Trade:", err.message);
   }
 
+}
+
+function setTradeCandles(candles) {
+  tradeCandleCloses = candles;
+}
+
+async function getCandlesFromDb() {
+  try {
+    const response = await axios.get(
+      `${process.env.backendURL}/bot/trade-candles`,
+      {
+        headers: { Authorization: `Bearer A.saboor786` }
+      }
+    );
+
+    if (response.data.success) {
+      console.log(`📊 Retrieved ${response.data.totalCandles} candles from DB`);
+      return response.data.candleCloses;
+    }
+
+    return [];
+  } catch (err) {
+    console.error("❌ Failed to get candles from DB:", err.message);
+    return [];
+  }
+}
+
+async function addCandleCloseToDb(closePrice) {
+  try {
+    // Skip if no valid price
+    if (closePrice === undefined || closePrice === null) {
+      return null;
+    }
+
+    const response = await axios.post(
+      `${process.env.backendURL}/bot/trade-candles`,
+      { closePrice },
+      {
+        headers: { Authorization: `Bearer A.saboor786` }
+      }
+    );
+
+    if (response.data.success) {
+      return response.data;
+    }
+
+    return null;
+  } catch (err) {
+    console.error("❌ Failed to add candle to DB:", err.message);
+    return null;
+  }
+}
+
+async function clearCandlesInDb() {
+  try {
+    const response = await axios.delete(
+      `${process.env.backendURL}/bot/trade-candles`,
+      {},
+      {
+        headers: { Authorization: `Bearer A.saboor786` }
+      }
+    );
+
+    if (response.data.success) {
+      console.log("🧹 All candles cleared from DB");
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error("❌ Failed to clear candles in DB:", err.message);
+    return false;
+  }
+}
+
+async function addCandleClose(closePrice) {
+  if (prevTradePrice !== null) {
+    tradeCandleCloses.push(closePrice);
+    await addCandleCloseToDb(closePrice);
+    console.log(`📈 Candle close added: ${closePrice} (Total: ${tradeCandleCloses.length})`);
+  }
 }
 
 async function getBotStatusFromDB() {
@@ -492,6 +558,8 @@ async function handleMfeandMea(prevTradePrice, prevTradeTime, prevTradeType) {
 
     await updateLastTrade(null, null, null, null)
     SetLastDetails(null, null, null, null)
+    await clearCandlesInDb();
+    tradeCandleCloses = [];
 
   }
   catch (err) {
@@ -517,6 +585,12 @@ async function checkSignal() {
     const newSignal = res.msg.signal;
     const ema200 = parseFloat(res.msg.ema200.toFixed(4));
     updateEMA(ema200);
+
+    const { ohlcv, status } = getLatestCandle();
+    if (status === 1 && ohlcv && ohlcv.length > 0) {
+      const latestCandleClose = ohlcv[ohlcv.length - 1].closes; // Get last candle's close
+      addCandleClose(latestCandleClose);
+    }
 
     if (newSignal == undefined) {
 
@@ -668,6 +742,8 @@ async function stopLoop() {
 
     await updateBotStatus(false, null, false);
     await updateLastTrade(null, null, null, null)
+    await clearCandlesInDb();
+    tradeCandleCloses = [];
 
     console.log("Bot stopped.");
 
@@ -675,6 +751,8 @@ async function stopLoop() {
     console.error("Error in stopLoop:", err.response?.status, err.message);
     await updateBotStatus(false, null, false);
     await updateLastTrade(null, null, null, null)
+    await clearCandlesInDb();
+    tradeCandleCloses = [];
     console.log("Bot force-stopped due to error.");
   }
 }
@@ -830,8 +908,8 @@ async function checkTPorSL(lastSignal) {
               Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
             }
           });
-        const savedTradeId = historyResponse.data.tradeId;        
-        
+        const savedTradeId = historyResponse.data.tradeId;
+
 
         await updateLastTrade(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)
         SetLastDetails(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)
@@ -1054,5 +1132,7 @@ module.exports = {
   setLastTradeSignal,
   saveSubscription,
   getLastTradeFromDB,
-  SetLastDetails
+  SetLastDetails,
+  setTradeCandles,
+  getCandlesFromDb
 };
