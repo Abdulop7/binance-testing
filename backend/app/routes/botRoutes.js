@@ -1,5 +1,5 @@
 const express = require("express");
-const {  doBacktest, getEma, morecandleFetch, ViewPrice, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory,AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, updLastTrade, getLastTrade, UpdateTradeHistoryMFE } = require("../controllers/botController");
+const {  doBacktest, getEma, morecandleFetch, ViewPrice, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory,AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, updLastTrade, getLastTrade, UpdateTradeHistoryMFE, getTradeCandles, addTradeCandleClose, clearAllTradeCandles } = require("../controllers/botController");
 const { getFuturesBalance } = require("../../botrunner");
 
 let BotRouter = express.Router()
@@ -35,6 +35,12 @@ BotRouter.post("/clear-trade", ClearTrade)
 BotRouter.post("/save-history", SaveHistory)
 
 BotRouter.get("/all-trades", AllTrades)
+
+BotRouter.get("/trade-candles", getTradeCandles)
+
+BotRouter.post("/trade-candles", addTradeCandleClose)
+
+BotRouter.delete("/trade-candles", clearAllTradeCandles)
 
 BotRouter.get("/atr", getAtr)
 

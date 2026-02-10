@@ -3,6 +3,7 @@ const axios = require("axios");
 const botrunner = require("../../botrunner");
 const BotStatus = require('../models/botStatus')
 const LastTrade = require('../models/lastTrade')
+const TradeCandles = require('../models/tradeCandles')
 const TradeHistory = require("../models/tradeHistory");
 const { ATR } = require('technicalindicators');
 const NewsEvent = require("../models/newsEvent");
@@ -241,6 +242,98 @@ async function getLastTrade(req, res) {
         res.status(500).json({ msg: "Server error", error: err });
     }
 
+}
+
+async function getTradeCandles(req, res) {
+  try {
+    // Find the single document (or create if doesn't exist)
+    let candles = await TradeCandles.findOne({});
+
+    if (!candles) {
+      // Create empty document if none exists
+      candles = new TradeCandles({ candleCloses: [] });
+      await candles.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      candleCloses: candles.candleCloses,
+      totalCandles: candles.candleCloses.length,
+      updatedAt: candles.updatedAt
+    });
+  } catch (err) {
+    console.error("Get all candles error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function addTradeCandleClose(req, res) {
+  try {
+    const { closePrice } = req.body;
+
+    // Validate input
+    if (closePrice === undefined || closePrice === null) {
+      return res.status(400).json({
+        success: false,
+        error: "closePrice is required"
+      });
+    }
+
+    // Validate it's a number
+    const price = parseFloat(closePrice);
+    if (isNaN(price)) {
+      return res.status(400).json({
+        success: false,
+        error: "closePrice must be a valid number"
+      });
+    }
+
+    // Find existing document or create new one, then push the candle close
+    let candles = await TradeCandles.findOne({});
+
+    if (!candles) {
+      // Create new document with first candle
+      candles = new TradeCandles({ candleCloses: [price] });
+    } else {
+      // Push to existing array
+      candles.candleCloses.push(price);
+    }
+
+    await candles.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Candle close added",
+      addedPrice: price,
+      totalCandles: candles.candleCloses.length
+    });
+  } catch (err) {
+    console.error("Add candle close error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function clearAllTradeCandles(req, res) {
+  try {
+    let candles = await TradeCandles.findOne({});
+
+    if (!candles) {
+      candles = new TradeCandles({ candleCloses: [] });
+    } else {
+      candles.candleCloses = [];
+    }
+
+    await candles.save();
+
+    res.status(200).json({
+      success: true,
+      message: "All candle closes cleared",
+      totalCandles: 0
+    });
+  } catch (err) {
+    console.error("Clear candles error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 }
 
 async function updBotStatus(req, res) {
@@ -562,4 +655,4 @@ async function subscribe(req, res) {
     res.status(201).json({});
 }
 
-module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe }
+module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe ,getTradeCandles, addTradeCandleClose,clearAllTradeCandles}
