@@ -359,7 +359,7 @@ async function placeOrder(signal, ema200) {
 
     const entryPrice = await getPrice();
 
-    currentTP = 0.0085
+    currentTP = 0.012 // 0.008 > 0.8%
     currentSL = getSL(atr)
     console.log(currentSL)
 

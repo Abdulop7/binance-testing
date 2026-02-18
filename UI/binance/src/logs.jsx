@@ -62,8 +62,8 @@ export default function Logs() {
 
         // Set these from UI or manually:
         let useCustomRange = true;              // if false → uses last X days
-        let customStartDate = "2026-1-10";     // yyyy-mm-dd
-        let customEndDate = "2026-2-10";       // yyyy-mm-dd  (optional)
+        let customStartDate = "2026-1-19";     // yyyy-mm-dd
+        let customEndDate = "2026-2-19";       // yyyy-mm-dd  (optional)
 
         // let customStartDate = "2026-1-15";     // yyyy-mm-dd
         // let customEndDate = "2026-2-4";       // yyyy-mm-dd  (optional)
@@ -112,9 +112,138 @@ export default function Logs() {
           entryPrice: typeof t.entryPrice === 'string' ? parseFloat(t.entryPrice) : t.entryPrice,
           profit: typeof t.profit === 'string' ? parseFloat(t.profit) : t.profit,
           slope: typeof t.slope === 'string' ? parseFloat(t.slope) : t.slope,
+
+          // NEW:
+          mfe: typeof t.mfe === 'string' ? parseFloat(t.mfe) : t.mfe,
+          mae: typeof t.mae === 'string' ? parseFloat(t.mae) : t.mae,
+          mfePercent: typeof t.mfePercent === 'string' ? parseFloat(t.mfePercent) : t.mfePercent,
+          maePercent: typeof t.maePercent === 'string' ? parseFloat(t.maePercent) : t.maePercent,
         }));
 
         console.log("Total trades loaded (after 30d filter):", restrades.length);
+
+        // ---------- Helpers for percentiles per combo ----------
+        const isNum = (v) => typeof v === "number" && Number.isFinite(v);
+
+        // p in [0, 100], arr must be sorted ascending
+        function percentile(sortedArr, p) {
+          if (!sortedArr.length) return null;
+          const idx = (p / 100) * (sortedArr.length - 1);
+          const lo = Math.floor(idx);
+          const hi = Math.ceil(idx);
+          if (lo === hi) return sortedArr[lo];
+          const w = idx - lo;
+          return sortedArr[lo] * (1 - w) + sortedArr[hi] * w;
+        }
+
+        /**
+         * Given all trades in one combo (filtered),
+         * compute:
+         *  - winners' MFE% percentiles: P20, P30, P50, P70
+         *  - winners' MAE% percentiles: P60, P70
+         *  - losers' MAE% percentiles: P40, P50
+         *  - suggested TP1/TP2/SL:
+         *    TP1 ≈ P30 of winners' MFE
+         *    TP2 ≈ P65 of winners' MFE (mid of 60–70)
+         *    SL  ≈ P70 of winners' MAE
+         */
+        function computeExitStatsForCombo(tradesSubset) {
+          if (!tradesSubset || tradesSubset.length === 0) {
+            return null;
+          }
+
+          const winners = tradesSubset.filter(t => t.profit > 0);
+          const losers = tradesSubset.filter(t => t.profit <= 0);
+
+          const mfeW = winners
+            .map(t => t.mfePercent)
+            .filter(isNum)
+            .sort((a, b) => a - b);
+
+          const maeW = winners
+            .map(t => t.maePercent)
+            .filter(isNum)
+            .sort((a, b) => a - b);
+
+          const maeL = losers
+            .map(t => t.maePercent)
+            .filter(isNum)
+            .sort((a, b) => a - b);
+
+          if (!mfeW.length) {
+            // no MFE% data for winners => cannot design exits
+            return null;
+          }
+
+          // Winners' MFE% percentiles
+          const mfeP20 = percentile(mfeW, 20);
+          const mfeP35 = percentile(mfeW, 35);
+          const mfeP50 = percentile(mfeW, 50);
+          const mfeP70 = percentile(mfeW, 70);
+          const mfeP65 = percentile(mfeW, 65); // mid of 60–70 for TP2
+
+          // Winners' MAE% (can be empty if no winners)
+          const maeW_P60 = maeW.length ? percentile(maeW, 60) : null;
+          const maeW_P70 = maeW.length ? percentile(maeW, 70) : null;
+
+          // Losers' MAE%
+          const maeL_P40 = maeL.length ? percentile(maeL, 40) : null;
+          const maeL_P50 = maeL.length ? percentile(maeL, 50) : null;
+
+          // Suggested levels
+          const suggestedTP1 = mfeP35;   // TP1 ≈ P30 (25–35 region)
+          const suggestedTP2 = mfeP65;   // TP2 ≈ P65 (60–70 region)
+          const suggestedSL = maeW_P70; // SL ≈ P70 of winners' MAE
+
+          return {
+            mfePercentiles: { mfeP20, mfeP35, mfeP50, mfeP70 },
+            maeWPercentiles: { maeW_P60, maeW_P70 },
+            maeLPercentiles: { maeL_P40, maeL_P50 },
+            suggestedTP1,
+            suggestedTP2,
+            suggestedSL,
+          };
+        }
+
+        // ===== GLOBAL AVERAGE / MIN / MAX MFE FOR ALL WINNERS (RAW + PERCENT) =====
+
+        // winners over the whole filtered dataset
+        const globalWinners = restrades.filter(t => t.profit > 0);
+
+        const mfeRawVals = globalWinners
+          .map(t => t.mfe)       // RAW MFE (your "init", not percent)
+          .filter(isNum);
+
+        const mfePctVals = globalWinners
+          .map(t => t.mfePercent)  // already in %
+          .filter(isNum);
+
+        const avgMFERaw = mfeRawVals.length
+          ? mfeRawVals.reduce((s, v) => s + v, 0) / mfeRawVals.length
+          : null;
+
+        const avgMFEPct = mfePctVals.length
+          ? mfePctVals.reduce((s, v) => s + v, 0) / mfePctVals.length
+          : null;
+
+        const minMFERaw = mfeRawVals.length ? Math.min(...mfeRawVals) : null;
+        const maxMFERaw = mfeRawVals.length ? Math.max(...mfeRawVals) : null;
+
+        const minMFEPct = mfePctVals.length ? Math.min(...mfePctVals) : null;
+        const maxMFEPct = mfePctVals.length ? Math.max(...mfePctVals) : null;
+
+        console.log("==== GLOBAL WINNERS MFE STATS ====");
+        console.table({
+          totalWinners: globalWinners.length,
+
+          avgMFE_raw: avgMFERaw !== null ? avgMFERaw.toFixed(6) : null,
+          minMFE_raw: minMFERaw !== null ? minMFERaw.toFixed(6) : null,
+          maxMFE_raw: maxMFERaw !== null ? maxMFERaw.toFixed(6) : null,
+
+          avgMFE_percent: avgMFEPct !== null ? avgMFEPct.toFixed(3) + "%" : null,
+          minMFE_percent: minMFEPct !== null ? minMFEPct.toFixed(3) + "%" : null,
+          maxMFE_percent: maxMFEPct !== null ? maxMFEPct.toFixed(3) + "%" : null,
+        });
 
         // Filters
         const nyFilter = (t) => isNewYorkSession(t.time)
@@ -432,17 +561,103 @@ export default function Logs() {
                 const wr = parseFloat(calculateWinrate(filtered));
                 const totalProfit = filtered.reduce((sum, t) => sum + (t.profit || 0), 0);
 
-                if (filtered.length >= min_trades && wr >= 35) {
+                if (filtered.length >= min_trades && wr >= 50) {
+                  // ---- SLOPE RANGE (already had this) ----
+                  const slopeValues = filtered
+                    .map(t => t.slope)
+                    .filter(s => typeof s === "number" && !Number.isNaN(s));
+
+                  const slopeCount = slopeValues.length;
+                  const minSlope = slopeCount > 0 ? Math.min(...slopeValues) : null;
+                  const maxSlope = slopeCount > 0 ? Math.max(...slopeValues) : null;
+
+                  // ---- EXIT STATS BASED ON MFE% / MAE% (WINNERS & LOSERS) ----
+                  const exitStats = computeExitStatsForCombo(filtered);
+
+                  if (testing) {
+                    const winners = filtered.filter(t => t.profit > 0);
+
+                    console.groupCollapsed(
+                      `COMBO | ATR ${minATR.toFixed(4)}-${maxATR.toFixed(4)} | NY:${useNY} | WE:${useWeekend} | Slope:${useSlope} | WR:${wr.toFixed(
+                        2
+                      )}% | Trades:${filtered.length}`
+                    );
+
+                    console.table(
+                      winners.map(t => ({
+                        tradeNumber: t.tradeNumber,
+                        time: t.time,
+                        type: t.type,
+                        atr: t.atr,
+                        entryPrice: t.entryPrice,
+                        profit: t.profit,
+                        mfe: t.mfe,
+                        mae: t.mae,
+                        mfePercent: t.mfePercent,
+                        maePercent: t.maePercent,
+                      }))
+                    );
+
+                    if (exitStats) {
+                      const {
+                        mfePercentiles: { mfeP20, mfeP30, mfeP50, mfeP70 },
+                        maeWPercentiles: { maeW_P60, maeW_P70 },
+                        maeLPercentiles: { maeL_P40, maeL_P50 },
+                        suggestedTP1,
+                        suggestedTP2,
+                        suggestedSL,
+                      } = exitStats;
+
+                      console.table({
+                        mfeP20: mfeP20 != null ? mfeP20.toFixed(3) + "%" : null,
+                        mfeP30: mfeP30 != null ? mfeP30.toFixed(3) + "%" : null,
+                        mfeP50: mfeP50 != null ? mfeP50.toFixed(3) + "%" : null,
+                        mfeP70: mfeP70 != null ? mfeP70.toFixed(3) + "%" : null,
+                        maeW_P60: maeW_P60 != null ? maeW_P60.toFixed(3) + "%" : null,
+                        maeW_P70: maeW_P70 != null ? maeW_P70.toFixed(3) + "%" : null,
+                        maeL_P40: maeL_P40 != null ? maeL_P40.toFixed(3) + "%" : null,
+                        maeL_P50: maeL_P50 != null ? maeL_P50.toFixed(3) + "%" : null,
+                        suggested_TP1: suggestedTP1 != null ? suggestedTP1.toFixed(3) + "%" : null,
+                        suggested_TP2: suggestedTP2 != null ? suggestedTP2.toFixed(3) + "%" : null,
+                        suggested_SL: suggestedSL != null ? suggestedSL.toFixed(3) + "%" : null,
+                      });
+                    }
+
+                    console.groupEnd();
+                  }
+
                   highWRCombos.push({
-                    ATR: `${minATR}-${maxATR}`,
+                    ATR: `${minATR.toFixed(4)}-${maxATR.toFixed(4)}`,
                     NY: useNY,
                     Weekend: useWeekend,
-                    Slope: useSlope,
+                    SlopeFilter: useSlope,
+
                     Winrate: wr.toFixed(2),
                     Trades: filtered.length,
-                    Profit: totalProfit
+                    Profit: totalProfit,
+
+                    SlopeMin: minSlope,
+                    SlopeMax: maxSlope,
+
+                    // Attach exit stats for this high‑WR combo
+                    TP1_Pct: exitStats?.suggestedTP1 != null
+                      ? exitStats.suggestedTP1.toFixed(3) + "%"
+                      : null,
+                    TP2_Pct: exitStats?.suggestedTP2 != null
+                      ? exitStats.suggestedTP2.toFixed(3) + "%"
+                      : null,
+                    SL_Pct: exitStats?.suggestedSL != null
+                      ? exitStats.suggestedSL.toFixed(3) + "%"
+                      : null,
+
+                    // (optional) raw percentiles if you want them in table as well
+                    mfeP20: exitStats?.mfePercentiles.mfeP20,
+                    mfeP30: exitStats?.mfePercentiles.mfeP30,
+                    mfeP50: exitStats?.mfePercentiles.mfeP50,
+                    mfeP70: exitStats?.mfePercentiles.mfeP70,
                   });
                 }
+
               }
             }
           }
