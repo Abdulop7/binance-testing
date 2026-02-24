@@ -14,13 +14,13 @@ const MANUAL_FILTER_MODE = 'RAW_ATR';
 // const MANUAL_ATR_PCT_MIN = 0.00046;   // e.g., 0.001 = 0.1%
 // const MANUAL_ATR_PCT_MAX = 0.00221;   // e.g., 0.005 = 0.5%
 
-const MANUAL_ATR_RAW_MIN = 0.2423;
-const MANUAL_ATR_RAW_MAX = 0.2676;
+const MANUAL_ATR_RAW_MIN = 0.7600;
+const MANUAL_ATR_RAW_MAX = 0.8260;
 
 const USE_NY_SESSION = false;        // true = only NY session trades
 const USE_WEEKEND_FILTER = true;    // true = exclude weekends
-const USE_SLOPE_FILTER = true;      // true = only non-zero slope trades
-const min_trades = 20
+const USE_SLOPE_FILTER = false;      // true = only non-zero slope trades
+const min_trades = 12
 // ============================================
 
 
@@ -32,7 +32,7 @@ function isNewYorkSession(time) {
 
 export default function Logs() {
   // const backendUrl = import.meta.env.VITE_BACKEND_URL;
-  const backendUrl = "https://binance-testing.fly.dev";
+  const backendUrl = "https://bnb-testing-2.onrender.com";
 
   let [trades, setTrades] = useState([])
   let [tProfit, setTprofit] = useState("")
@@ -62,11 +62,11 @@ export default function Logs() {
 
         // Set these from UI or manually:
         let useCustomRange = true;              // if false → uses last X days
-        let customStartDate = "2026-1-19";     // yyyy-mm-dd
-        let customEndDate = "2026-2-19";       // yyyy-mm-dd  (optional)
+        let customStartDate = "2025-12-12";     // yyyy-mm-dd
+        let customEndDate = "2026-1-12";       // yyyy-mm-dd  (optional)
 
-        // let customStartDate = "2026-1-15";     // yyyy-mm-dd
-        // let customEndDate = "2026-2-4";       // yyyy-mm-dd  (optional)
+        // let customStartDate = "2026-1-12";     // yyyy-mm-dd
+        // let customEndDate = "2026-1-18";       // yyyy-mm-dd  (optional)
 
         // Number of days if not using custom range
         const LAST_X_DAYS = testing ? 60 : 999999;
