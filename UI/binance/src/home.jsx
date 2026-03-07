@@ -20,6 +20,8 @@ export default function Home() {
         },
       });
 
+      console.log(res.data);
+
       let fres = res.data;
 
       if (res) {
