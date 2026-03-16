@@ -3,6 +3,7 @@ const axios = require("axios");
 
 let priceWS = null;
 let candleWS = null;
+let symbol = process.env.symbol;
 
 let lastPricePing = Date.now();
 let lastCandlePing = Date.now();
@@ -11,14 +12,10 @@ let latestCandle = null;
 let candleBuffer = [];
 const maxCandles = 1000;
 
-const WHATSAPP_API_URL = "https://graph.facebook.com/v20.0";
-const PHONE_NUMBER_ID = 781950855010751; // from your Meta App
-const ACCESS_TOKEN = "EAATCd12aucIBP6AJtN2vO4esFtvUkdoAkHaNzZCkZCN7ZBes1GsG4Y3JlOEkqzADC0IH28Dxd22r8lS1nelMIUl4ZCLX28gDFQHYZApZBg3cqyEVDgHWghuhJuc5hxmNHVKJbA6LFZAxvRXzJxZAQf6rvQ1farDShZCqdxBA7Dbwjfo3LRjMHJvly7ZBe2eNamjAZDZD"; // from your Meta App
-
 
 // ------------------ PRICE SOCKET ----------------------
 
-function startPriceSocket(symbol = "solusdt") {
+function startPriceSocket(symbol) {
   if (priceWS) priceWS.terminate();
 
   priceWS = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@ticker`);
@@ -45,7 +42,7 @@ function startPriceSocket(symbol = "solusdt") {
 
 // ------------------ CANDLE SOCKET ----------------------
 
-function startCandleSocket(symbol = "solusdt") {
+function startCandleSocket(symbol) {
   if (candleWS) candleWS.terminate();
 
   candleWS = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@kline_3m`);
@@ -95,8 +92,15 @@ function startCandleSocket(symbol = "solusdt") {
 
 // --------------- PREFILL ------------------
 
-async function prefillCandles(symbol = "SOLUSDT", interval = "3m", limit = 100) {
+async function prefillCandles(symbol, interval = "3m", limit = 100) {
   try {
+
+    axios.get('https://api.ipify.org?format=json')
+      .then(res => {
+        console.log('Public IP:', res.data.ip);
+      })
+      .catch(err => console.error(err));
+
     const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
     const { data } = await axios.get(url);
 
@@ -111,9 +115,82 @@ async function prefillCandles(symbol = "SOLUSDT", interval = "3m", limit = 100) 
     }));
 
     latestCandle = candleBuffer[candleBuffer.length - 1];
-    console.log(`✅ Pre-filled ${candleBuffer.length} candles.`);
+    console.log(`✅ 
+      
+      -filled ${candleBuffer.length} candles.`);
   } catch (err) {
-    console.error("❌ Prefill error:", err.message);
+    console.error("❌ Prefill error:", err.response.data.msg);
+  }
+}
+
+async function getCandlesDataFromDb(interval = '3m') {
+  try {
+    const resp = await axios.get(
+      `${process.env.backendURL}/bot/candles-data`,
+      {
+        params: { interval },
+        headers: { Authorization: `Bearer A.saboor786` }
+      }
+    );
+
+    if (resp.data.success) {
+      const { candles, totalCandles, lastCloseTime } = resp.data;
+      console.log(`📊 CandlesData: got ${totalCandles} candles, lastCloseTime=${lastCloseTime}`);
+      return { candles, lastCloseTime };
+    }
+
+    return { candles: [], lastCloseTime: null };
+  } catch (err) {
+    console.error("❌ Failed to get CandlesData from DB:", err.message);
+    return { candles: [], lastCloseTime: null };
+  }
+}
+
+async function initCandleBufferFromDbOrPrefill(interval = '3m', limit = 100) {
+  try {
+    const { candles, lastCloseTime } = await getCandlesDataFromDb(interval);
+    const now = Date.now();
+    const MAX_STALE_MS = 3 * 60 * 1000; // 3 minutes
+
+    const isFresh =
+      candles.length > 0 &&
+      typeof lastCloseTime === 'number' &&
+      now - lastCloseTime <= MAX_STALE_MS;
+
+    if (isFresh) {
+      // Map DB candles → in-memory format used in candleBuffer
+      candleBuffer = candles.map(c => ({
+        openTime: c.openTime,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        closes: c.close,     // DB field is "close"; your buffer uses "closes"
+        volume: c.volume,
+        closeTime: c.closeTime,
+      }));
+
+      if (candleBuffer.length > maxCandles) {
+        candleBuffer = candleBuffer.slice(-maxCandles);
+      }
+
+      latestCandle = candleBuffer[candleBuffer.length - 1];
+
+      console.log(
+        `🔥 Restored ${candleBuffer.length} candles from DB (lastCloseTime=${new Date(lastCloseTime).toISOString()})`
+      );
+    } else {
+      console.log("⚠️ CandlesData stale or empty → calling prefillCandles from Binance...");
+      await prefillCandles(symbol, interval, limit);
+      // prefillCandles already fills candleBuffer & latestCandle
+    }
+  } catch (err) {
+    console.error("❌ initCandleBufferFromDbOrPrefill error:", err.message);
+    // As a fallback, try prefill anyway
+    try {
+      await prefillCandles(symbol, interval, limit);
+    } catch (e) {
+      console.error("❌ prefill fallback failed:", e.message);
+    }
   }
 }
 
@@ -137,36 +214,7 @@ setInterval(() => {
 
   if (now - lastPricePing > 20000) {
 
-    axios.post(
-      `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
-      {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: "923098113300",
-        type: "template",
-        template: {
-          name: "reminder",
-          language: { code: "en_US" },
-          components: [
-            {
-              type: "body",
-              parameters: [
-                { type: "text", text: "Abdul Saboor" },
-                { type: "text", text: "Bot has Restarted Due to Break in Websocket" },
-              ],
-            },
-          ],
-        }
-
-
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    whatsappAlert();
 
     console.log("⚠️ Price socket frozen → restarting...");
     startPriceSocket();
@@ -174,36 +222,7 @@ setInterval(() => {
 
   if (now - lastCandlePing > 20000) {
 
-    axios.post(
-      `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
-      {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: "923098113300",
-        type: "template",
-        template: {
-          name: "reminder",
-          language: { code: "en_US" },
-          components: [
-            {
-              type: "body",
-              parameters: [
-                { type: "text", text: "Abdul Saboor" },
-                { type: "text", text: "Bot has Restarted Due to Break in Websocket" },
-              ],
-            },
-          ],
-        }
-
-
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    whatsappAlert()
 
     console.log("⚠️ Candle socket frozen → restarting...");
     startCandleSocket();
@@ -211,10 +230,53 @@ setInterval(() => {
 
 }, 10000);
 
+
+
+function whatsappAlert() {
+
+  const WHATSAPP_API_URL = "https://graph.facebook.com/v20.0";
+  const PHONE_NUMBER_ID = 781950855010751; // from your Meta App
+  const ACCESS_TOKEN = "EAATCd12aucIBP6AJtN2vO4esFtvUkdoAkHaNzZCkZCN7ZBes1GsG4Y3JlOEkqzADC0IH28Dxd22r8lS1nelMIUl4ZCLX28gDFQHYZApZBg3cqyEVDgHWghuhJuc5hxmNHVKJbA6LFZAxvRXzJxZAQf6rvQ1farDShZCqdxBA7Dbwjfo3LRjMHJvly7ZBe2eNamjAZDZD"; // from your Meta App
+
+
+  axios.post(
+    `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
+    {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: "923098113300",
+      type: "template",
+      template: {
+        name: "reminder",
+        language: { code: "en_US" },
+        components: [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: "Abdul Saboor" },
+              { type: "text", text: `${symbol.toUpperCase()} Bot has Restarted Due to Break in Websocket` },
+            ],
+          },
+        ],
+      }
+
+
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+}
+
 module.exports = {
   startPriceSocket,
   startCandleSocket,
   prefillCandles,
   getLatestPrice,
-  getLatestCandle
+  getLatestCandle,
+  initCandleBufferFromDbOrPrefill
 };
