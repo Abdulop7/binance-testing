@@ -7,6 +7,7 @@ const TradeCandles = require('../models/tradeCandles')
 const TradeHistory = require("../models/tradeHistory");
 const { ATR } = require('technicalindicators');
 const NewsEvent = require("../models/newsEvent");
+const CandlesData = require("../models/candlesData");
 const Trade = require("../models/trade");
 const { getLatestCandle } = require("../../binanceWebSocket");
 
@@ -245,95 +246,191 @@ async function getLastTrade(req, res) {
 }
 
 async function getTradeCandles(req, res) {
-  try {
-    // Find the single document (or create if doesn't exist)
-    let candles = await TradeCandles.findOne({});
+    try {
+        // Find the single document (or create if doesn't exist)
+        let candles = await TradeCandles.findOne({});
 
-    if (!candles) {
-      // Create empty document if none exists
-      candles = new TradeCandles({ candleCloses: [] });
-      await candles.save();
+        if (!candles) {
+            // Create empty document if none exists
+            candles = new TradeCandles({ candleCloses: [] });
+            await candles.save();
+        }
+
+        res.status(200).json({
+            success: true,
+            candleCloses: candles.candleCloses,
+            totalCandles: candles.candleCloses.length,
+            updatedAt: candles.updatedAt
+        });
+    } catch (err) {
+        console.error("Get all candles error:", err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+}
+
+async function getCandlesData(req, res) {
+    try {
+        const symbol = process.env.symbol;            // or req.query.symbol
+        const interval = req.query.interval || '3m';
+
+        let doc = await CandlesData.findOne({ symbol, interval }).lean();
+
+        if (!doc) {
+            return res.json({
+                success: true,
+                symbol,
+                interval,
+                candles: [],
+                totalCandles: 0,
+                lastCloseTime: null,
+            });
+        }
+
+        return res.json({
+            success: true,
+            symbol,
+            interval,
+            candles: doc.candles,
+            totalCandles: doc.candles.length,
+            lastCloseTime: doc.lastCloseTime,
+        });
+    } catch (err) {
+        console.error('GET /candles-data error:', err.message);
+        res.status(500).json({ success: false, msg: 'Server error' });
+    }
+}
+
+async function addCandlesData(req, res) {
+    try {
+        const symbol = process.env.symbol;
+        const interval = req.body.interval || '3m';
+        const candle = req.body.candle;
+        const MAX_LEN = 100;
+
+        if (
+            !candle ||
+            typeof candle.openTime !== 'number' ||
+            typeof candle.closeTime !== 'number'
+        ) {
+            return res.status(400).json({ success: false, msg: 'Invalid candle' });
+        }
+
+        const doc = await CandlesData.findOneAndUpdate(
+            { symbol, interval },
+            {
+                $push: {
+                    candles: {
+                        $each: [candle],
+                        $slice: -MAX_LEN,   // keep last MAX_LEN candles
+                    },
+                },
+                $set: {
+                    lastCloseTime: candle.closeTime,
+                },
+            },
+            { upsert: true, new: true }
+        );
+
+        res.json({
+            success: true,
+            symbol,
+            interval,
+            totalCandles: doc.candles.length,
+            lastCloseTime: doc.lastCloseTime,
+        });
+    } catch (err) {
+        console.error('POST /candles-data error:', err.message);
+        res.status(500).json({ success: false, msg: 'Server error' });
+    }
+}
+
+async function delCandlesData(req, res) {
+
+    try {
+        const symbol = process.env.symbol;
+        const interval = req.query.interval || '3m';
+
+        await CandlesData.findOneAndUpdate(
+            { symbol, interval },
+            { $set: { candles: [], lastCloseTime: null } },
+            { upsert: true }
+        );
+
+        res.json({ success: true, msg: 'All candles cleared.' });
+    } catch (err) {
+        console.error('DELETE /candles-data error:', err.message);
+        res.status(500).json({ success: false, msg: 'Server error' });
     }
 
-    res.status(200).json({
-      success: true,
-      candleCloses: candles.candleCloses,
-      totalCandles: candles.candleCloses.length,
-      updatedAt: candles.updatedAt
-    });
-  } catch (err) {
-    console.error("Get all candles error:", err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
 }
 
 async function addTradeCandleClose(req, res) {
-  try {
-    const { closePrice } = req.body;
+    try {
+        const { closePrice } = req.body;
 
-    // Validate input
-    if (closePrice === undefined || closePrice === null) {
-      return res.status(400).json({
-        success: false,
-        error: "closePrice is required"
-      });
+        // Validate input
+        if (closePrice === undefined || closePrice === null) {
+            return res.status(400).json({
+                success: false,
+                error: "closePrice is required"
+            });
+        }
+
+        // Validate it's a number
+        const price = parseFloat(closePrice);
+        if (isNaN(price)) {
+            return res.status(400).json({
+                success: false,
+                error: "closePrice must be a valid number"
+            });
+        }
+
+        // Find existing document or create new one, then push the candle close
+        let candles = await TradeCandles.findOne({});
+
+        if (!candles) {
+            // Create new document with first candle
+            candles = new TradeCandles({ candleCloses: [price] });
+        } else {
+            // Push to existing array
+            candles.candleCloses.push(price);
+        }
+
+        await candles.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Candle close added",
+            addedPrice: price,
+            totalCandles: candles.candleCloses.length
+        });
+    } catch (err) {
+        console.error("Add candle close error:", err.message);
+        res.status(500).json({ success: false, error: err.message });
     }
-
-    // Validate it's a number
-    const price = parseFloat(closePrice);
-    if (isNaN(price)) {
-      return res.status(400).json({
-        success: false,
-        error: "closePrice must be a valid number"
-      });
-    }
-
-    // Find existing document or create new one, then push the candle close
-    let candles = await TradeCandles.findOne({});
-
-    if (!candles) {
-      // Create new document with first candle
-      candles = new TradeCandles({ candleCloses: [price] });
-    } else {
-      // Push to existing array
-      candles.candleCloses.push(price);
-    }
-
-    await candles.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Candle close added",
-      addedPrice: price,
-      totalCandles: candles.candleCloses.length
-    });
-  } catch (err) {
-    console.error("Add candle close error:", err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
 }
 
 async function clearAllTradeCandles(req, res) {
-  try {
-    let candles = await TradeCandles.findOne({});
+    try {
+        let candles = await TradeCandles.findOne({});
 
-    if (!candles) {
-      candles = new TradeCandles({ candleCloses: [] });
-    } else {
-      candles.candleCloses = [];
+        if (!candles) {
+            candles = new TradeCandles({ candleCloses: [] });
+        } else {
+            candles.candleCloses = [];
+        }
+
+        await candles.save();
+
+        res.status(200).json({
+            success: true,
+            message: "All candle closes cleared",
+            totalCandles: 0
+        });
+    } catch (err) {
+        console.error("Clear candles error:", err.message);
+        res.status(500).json({ success: false, error: err.message });
     }
-
-    await candles.save();
-
-    res.status(200).json({
-      success: true,
-      message: "All candle closes cleared",
-      totalCandles: 0
-    });
-  } catch (err) {
-    console.error("Clear candles error:", err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
 }
 
 async function updBotStatus(req, res) {
@@ -522,9 +619,10 @@ async function ClearTrade(req, res) {
 
 async function SaveHistory(req, res) {
 
-    const { tradeNumber, profit, time, type, positionSize, atr, positionSizeUSD, slope, leverage, entryPrice } = req.body;
+    const { tradeNumber, profit, time, type, positionSize, atr, positionSizeUSD, slope, leverage, entryPrice, bot } = req.body;
 
     const history = new TradeHistory({
+        bot,
         tradeNumber,
         entryPrice,
         atr,
@@ -542,7 +640,7 @@ async function SaveHistory(req, res) {
     const tradeId = history._id;
 
     console.log(`Trade Id sending Via Save History is = ${tradeId}`);
-    
+
 
     res.status(200).json({ success: true, message: "Trade saved", tradeId: tradeId.toString() });
 
@@ -655,4 +753,33 @@ async function subscribe(req, res) {
     res.status(201).json({});
 }
 
-module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe ,getTradeCandles, addTradeCandleClose,clearAllTradeCandles}
+async function updatePartial(req, res) {
+    try {
+        const symbol = process.env.symbol;
+        const { positionSize, positionSizeUSD, closedProfit } = req.body;
+
+        const trade = await Trade.findOne().sort({ entryTime: -1 });
+
+        if (!trade) {
+            return res.status(404).json({ success: false, msg: 'No active trade' });
+        }
+
+        trade.positionSize = positionSize;
+        trade.positionSizeUSD = positionSizeUSD;
+        trade.realizedProfit = (trade.realizedProfit) + (closedProfit);
+
+        await trade.save();
+
+        res.json({
+            success: true,
+            realizedProfit: trade.realizedProfit,
+            positionSize: trade.positionSize,
+            positionSizeUSD: trade.positionSizeUSD,
+        });
+    } catch (err) {
+        console.error('POST /bot/update-trade-partial error:', err.message);
+        res.status(500).json({ success: false, msg: 'Server error' });
+    }
+}
+
+module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData,updatePartial }

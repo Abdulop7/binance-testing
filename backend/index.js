@@ -6,11 +6,11 @@ let app = express()
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
-const port =  5000; // ✅ right
+const port = 5000; // ✅ right
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
-const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, calculateEmaSignal, setTpSl, setLastTradeSignal, getLastTradeFromDB, SetLastDetails } = require('./botrunner.js');
-const { startPriceSocket, startCandleSocket, prefillCandles } = require('./binanceWebSocket.js');
+const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, calculateEmaSignal, setTpSl, setLastTradeSignal, getLastTradeFromDB, SetLastDetails, getCandlesFromDb, setTradeCandles, updatePartial } = require('./botrunner.js');
+const { startPriceSocket, startCandleSocket, prefillCandles, initCandleBufferFromDbOrPrefill } = require('./binanceWebSocket.js');
 let symbol = process.env.symbol;
 
 process.on("SIGINT", () => {
@@ -54,17 +54,17 @@ app.use("/bot", BotRouter)
 mongoose.connect(process.env.DbUrl).then(() => {
   console.log("Database Connected to :", process.env.DbUrl);
 
-  app.listen(port, "0.0.0.0",() => {
+  app.listen(port, "0.0.0.0", () => {
     console.log("Server is Running on:", port);
 
-    prefillCandles(symbol, "3m", 1000);
+    initCandleBufferFromDbOrPrefill("3m", 1000);
     startPriceSocket(symbol.toLowerCase());
     startCandleSocket(symbol.toLowerCase());
     // Delay initialization logic by 3 seconds
     setTimeout(async () => {
       try {
         const { isActive, inTrade } = await getBotStatusFromDB();
-        const { lastTradeObjectId, lastTradePrice,LastTradeTime,lastTradeSignal } = await getLastTradeFromDB();
+        const { lastTradeObjectId, lastTradePrice, LastTradeTime, lastTradeSignal } = await getLastTradeFromDB();
         console.log(`Bot isActive:${isActive}`);
 
         if (isActive) {
@@ -75,19 +75,22 @@ mongoose.connect(process.env.DbUrl).then(() => {
           console.log("✅ Last Signal Registered: ", newSignal);
           updLastSignal(newSignal);
 
-          if(lastTradeSignal){ 
-            SetLastDetails(lastTradeSignal,LastTradeTime,lastTradePrice,lastTradeObjectId);
+          if (lastTradeSignal) {
+            SetLastDetails(lastTradeSignal, LastTradeTime, lastTradePrice, lastTradeObjectId);
             console.log("Last Trade Details Registered ✅");
-            
+
+            let candles = await getCandlesFromDb();
+            if (candles) {
+              setTradeCandles(candles)
+            }
+
           }
 
           await updateBotStatus(true, newSignal, inTrade);
 
           initTradeCount();
-          setTpSl();
 
-
-          try{
+          try {
 
             // Get the active trade data from the backend
             const tradeRes = await axios.get(`${process.env.backendURL}/bot/get-trade`,
@@ -96,22 +99,26 @@ mongoose.connect(process.env.DbUrl).then(() => {
                   Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
                 }
               }); // WebUrl here 
-              
-              
-              if (tradeRes){
 
-              const {type} = tradeRes.data;
-              
+
+            if (tradeRes) {
+
+              const { type } = tradeRes.data;
+              const { realizedProfit } = tradeRes.data;
+              let tpHit = realizedProfit > 0 ? true : false;
+
               setLastTradeSignal(type);
 
               console.log(`Last Trade Signal Set to : ${type}`);
-              
-            } 
-          }catch(e){
+
+              if (tpHit) updatePartial(true);
+              setTpSl(tpHit);
+            }
+          } catch (e) {
             console.log(`⚠️ No Active Trade Found`);
-            
+
           }
-            
+
 
           const now = new Date();
           const minutes = now.getMinutes();
