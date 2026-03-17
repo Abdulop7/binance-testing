@@ -269,20 +269,20 @@ async function clearCandlesInDb() {
   try {
     const response = await axios.delete(
       `${process.env.backendURL}/bot/trade-candles`,
-      {},
       {
         headers: { Authorization: `Bearer A.saboor786` }
       }
     );
 
     if (response.data.success) {
-      console.log("🧹 All candles cleared from DB");
+      console.log("🧹 trade-candles cleared in DB");
       return true;
     }
 
+    console.log("⚠️ clearCandlesInDb: backend responded but success=false:", response.data);
     return false;
   } catch (err) {
-    console.error("❌ Failed to clear candles in DB:", err.message);
+    console.error("❌ Failed to clear trade-candles in DB:", err.response?.data || err.message);
     return false;
   }
 }
