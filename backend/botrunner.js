@@ -1,10 +1,41 @@
 const axios = require("axios");
 const crypto = require('crypto');
-const webpush = require('web-push');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
 const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
 
+let LiveTrading = false
+let symbol = process.env.symbol;
+let currentBalance = 1000
+let tpVal = 0.0085
+let slVal = 1.5
+
+//---------------------------
+
+const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
+const mainBotUrl = "https://binance-project-cp53cw.fly.dev"
+let intervalRef = null;
+let lastSignal = null; // <-- Declare here to keep it across calls
+let tradeCount = 0; // Global scope (top of the script)
+let prevTradeType = null;
+let prevTradeTime = null;
+let prevTradePrice = null;
+let prevTradeObjectId = null;
+let tradeCandleCloses = []; // Stores candle closes while trade is open
+let partialTPHit = false; // have we taken the 50% partial on current trade?
+let currentTP = 0
+let currentSL = 0
+let lastTradeSignal = null
+let emaHistory = []
+let subscriptions = [];
+
+// Example config (keep your own values)
+const OPTIMIZER_DAYS = 30;          // how many days of history to use
+const MIN_TRADES_FOR_DATASET = 50;  // minimum trades overall to even run optimizer
+
+// thresholds for Raw ATR combos
+const MIN_TRADES_ATR = 20;     // minimum trades for a combo to be considered "good"
+const MIN_WR_ATR = 50;        // minimum winrate% for a combo to be considered "good"
 
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
 // Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
@@ -13,6 +44,635 @@ async function getPrice() {
 
   let Fprice = await getLatestPrice()
   return Fprice
+}
+
+
+const isNum = v => typeof v === "number" && Number.isFinite(v);
+
+// p in [0, 100], array must be sorted ascending
+function percentile(sortedArr, p) {
+  if (!sortedArr.length) return null;
+  const idx = (p / 100) * (sortedArr.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sortedArr[lo];
+  const w = idx - lo;
+  return sortedArr[lo] * (1 - w) + sortedArr[hi] * w;
+}
+
+/**
+ * Given all trades in one combo (filtered),
+ * compute:
+ *  - winners' MFE% percentiles: P20, P30, P50, P70
+ *  - winners' MAE% percentiles: P60, P70
+ *  - losers' MAE% percentiles: P40, P50
+ * And suggest:
+ *  - TP1 ≈ P30 of winners' MFE% (we'll use only TP1 for now)
+ *  - SL  ≈ P70 of winners' MAE%
+ */
+function computeExitStatsForCombo(tradesSubset) {
+  if (!tradesSubset || tradesSubset.length === 0) return null;
+
+  const winners = tradesSubset.filter(t => t.profit > 0);
+  const losers = tradesSubset.filter(t => t.profit <= 0);
+
+  const mfeW = winners
+    .map(t => t.mfePercent)
+    .filter(isNum)
+    .sort((a, b) => a - b);
+
+  const maeW = winners
+    .map(t => t.maePercent)
+    .filter(isNum)
+    .sort((a, b) => a - b);
+
+  const maeL = losers
+    .map(t => t.maePercent)
+    .filter(isNum)
+    .sort((a, b) => a - b);
+
+  if (!mfeW.length) return null; // no MFE data → skip
+
+  // Winners' MFE% percentiles
+  const mfeP20 = percentile(mfeW, 20);
+  const mfeP35 = percentile(mfeW, 35);
+  const mfeP50 = percentile(mfeW, 50);
+  const mfeP85 = percentile(mfeW, 85);
+
+  // Winners' MAE% (may be empty if no winners)
+  const maeW_P60 = maeW.length ? percentile(maeW, 60) : null;
+  const maeW_P85 = maeW.length ? percentile(maeW, 85) : null;
+
+  // Losers' MAE%
+  const maeL_P40 = maeL.length ? percentile(maeL, 40) : null;
+  const maeL_P50 = maeL.length ? percentile(maeL, 50) : null;
+
+  // Suggested levels (in % units, e.g., 0.85 means 0.85%)
+  const suggestedTP1 = mfeP35;   // TP1 ~ P30 of winners' MFE%
+  const suggestedSL = maeW_P85; // SL  ~ P70 of winners' MAE%
+
+  return {
+    mfePercentiles: { mfeP20, mfeP35, mfeP50, mfeP85 },
+    maeWPercentiles: { maeW_P60, maeW_P85 },
+    maeLPercentiles: { maeL_P40, maeL_P50 },
+    suggestedTP1,
+    suggestedSL,
+  };
+}
+
+function generateDynamicATRRanges(tradesData) {
+
+  // Calculate ATR% for each trade
+  const tradesWithATRPct = tradesData
+    .filter(t => t.atr && t.entryPrice && !isNaN(t.atr) && !isNaN(t.entryPrice) && t.entryPrice > 0)
+    .map(t => ({
+      ...t,
+      atrPct: t.atr / t.entryPrice // ATR as percentage of price
+    }));
+
+  if (tradesWithATRPct.length === 0) {
+    console.warn("No valid ATR/Price data found");
+    return [];
+  }
+
+  const atrPctValues = tradesWithATRPct.map(t => t.atrPct);
+  const minPct = Math.min(...atrPctValues);
+  const maxPct = Math.max(...atrPctValues);
+
+  // Create price brackets based on data distribution
+  const priceBrackets = [
+    { name: "Low Price", min: 0, max: 10, trades: [] },
+    { name: "Medium Price", min: 10, max: 100, trades: [] },
+    { name: "High Price", min: 100, max: 1000, trades: [] },
+    { name: "Very High Price", min: 1000, max: Infinity, trades: [] }
+  ];
+
+  // Categorize trades by price brackets
+  tradesWithATRPct.forEach(trade => {
+    const bracket = priceBrackets.find(b => trade.entryPrice >= b.min && trade.entryPrice < b.max);
+    if (bracket) bracket.trades.push(trade);
+  });
+
+  // Generate ATR% ranges based on data distribution
+  const sortedPctValues = [...atrPctValues].sort((a, b) => a - b);
+  const getPercentile = (p) => {
+    const index = Math.floor((p / 100) * sortedPctValues.length);
+    return sortedPctValues[Math.min(index, sortedPctValues.length - 1)];
+  };
+
+  const p10 = getPercentile(10);
+  const p25 = getPercentile(25);
+  const p50 = getPercentile(50);
+  const p75 = getPercentile(75);
+  const p90 = getPercentile(90);
+
+  // Generate ATR% ranges using multiple strategies
+  const atrPctRanges = [];
+
+  // Strategy 1: Fixed percentage ranges with finer steps for 4-decimal precision
+  const fixedSteps = [0.0001, 0.00025, 0.0005, 0.001, 0.002, 0.003, 0.005]; // 0.01%, 0.025%, 0.05%, 0.1%, 0.2%, 0.3%, 0.5%
+  fixedSteps.forEach(step => {
+    for (let start = minPct; start <= maxPct; start += step) {
+      const end = Math.min(start + step * 2, maxPct);
+      atrPctRanges.push([start, end]);
+    }
+  });
+
+  // Strategy 2: Percentile-based ranges
+  const percentilePoints = [p10, p25, p50, p75, p90];
+  for (let i = 0; i < percentilePoints.length; i++) {
+    for (let j = i + 1; j < percentilePoints.length; j++) {
+      atrPctRanges.push([percentilePoints[i], percentilePoints[j]]);
+    }
+  }
+
+  // Strategy 3: Adaptive ranges based on density with finer granularity
+  const adaptiveRanges = [];
+  const numBuckets = 50; // Increased for finer granularity
+  const bucketSize = (maxPct - minPct) / numBuckets;
+
+  for (let i = 0; i < numBuckets; i++) {
+    const start = minPct + (i * bucketSize);
+    for (let j = i + 1; j < Math.min(i + 8, numBuckets); j++) { // Increased range combinations
+      const end = minPct + (j * bucketSize);
+      adaptiveRanges.push([start, end]);
+    }
+  }
+  atrPctRanges.push(...adaptiveRanges);
+
+  // Remove duplicates and filter valid ranges
+  const uniquePctRanges = [...new Set(
+    atrPctRanges
+      .filter(([min, max]) => min < max && min >= 0)
+      .map(r => JSON.stringify(r))
+  )].map(r => JSON.parse(r));
+
+  // Convert ATR% ranges to absolute ATR ranges for each price bracket
+  const absoluteRanges = [];
+
+  priceBrackets.forEach(bracket => {
+    if (bracket.trades.length === 0) return;
+
+    // Use median price of bracket for calculations
+    const sortedTrades = bracket.trades.sort((a, b) => a.entryPrice - b.entryPrice);
+    const medianPrice = sortedTrades[Math.floor(sortedTrades.length / 2)].entryPrice;
+
+    uniquePctRanges.forEach(([minPct, maxPct]) => {
+      const minATR = minPct * medianPrice;
+      const maxATR = maxPct * medianPrice;
+
+      // Only add ranges that make sense for this price level
+      // Adjusted minimum for 4-decimal precision
+      if (minATR >= 0.0001 && maxATR <= medianPrice * 0.1) { // Max 10% of price
+        absoluteRanges.push({
+          priceRange: bracket.name,
+          priceMin: bracket.min,
+          priceMax: bracket.max,
+          atrMin: parseFloat(minATR.toFixed(4)), // Keep 4 decimal places
+          atrMax: parseFloat(maxATR.toFixed(4)), // Keep 4 decimal places
+          atrPctMin: minPct,
+          atrPctMax: maxPct
+        });
+      }
+    });
+  });
+
+  // Group and sort ranges by price bracket
+  const rangesByPriceBracket = {};
+  absoluteRanges.forEach(range => {
+    if (!rangesByPriceBracket[range.priceRange]) {
+      rangesByPriceBracket[range.priceRange] = [];
+    }
+    rangesByPriceBracket[range.priceRange].push([range.atrMin, range.atrMax]);
+  });
+
+  Object.entries(rangesByPriceBracket).forEach(([bracketName, ranges]) => {
+    ranges.slice(0, 5).forEach(([min, max]) => {
+      const bracket = priceBrackets.find(b => b.name === bracketName);
+      const avgPrice = bracket.trades.length > 0
+        ? bracket.trades.reduce((sum, t) => sum + t.entryPrice, 0) / bracket.trades.length
+        : (bracket.min + bracket.max) / 2;
+
+      const minPct = (min / avgPrice * 100).toFixed(4);
+      const maxPct = (max / avgPrice * 100).toFixed(4);
+
+    });
+  });
+
+  // Flatten all ranges into a single array for compatibility
+  const allRanges = Object.values(rangesByPriceBracket).flat();
+
+  // Remove duplicates and sort while maintaining 4 decimal precision
+  const finalRanges = [...new Set(
+    allRanges
+      .map(r => JSON.stringify(r))
+  )].map(r => JSON.parse(r))
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1])
+    .slice(0, 200); // Increased limit for more comprehensive ranges
+
+  return finalRanges;
+}
+
+async function findBestATRCombo() {
+  try {
+    console.log("🔍 Running Raw ATR Optimizer...");
+
+    // 1. Fetch all trades
+    const res = await axios.get(
+      `${process.env.backendURL}/bot/all-trades`,
+      { headers: { Authorization: `Bearer A.saboor786` } }
+    );
+
+    let trades = res.data || [];
+
+    // 2. Filter out invalid trades (bad dates)
+    trades = trades.filter(t => {
+      if (!t.time) return false;
+      const ts = new Date(t.time).getTime();
+      return !isNaN(ts);
+    });
+
+    // 3. Keep only last X days
+    const now = Date.now();
+    const xDaysAgo = now - OPTIMIZER_DAYS * 24 * 60 * 60 * 1000;
+
+    trades = trades.filter(t => {
+      const ts = new Date(t.time).getTime();
+      return ts >= xDaysAgo;
+    });
+
+    console.log(`📊 Trades in last ${OPTIMIZER_DAYS} days: ${trades.length}`);
+
+    if (trades.length < MIN_TRADES_FOR_DATASET) {
+      console.warn(
+        `⚠️ Not enough trades (${trades.length}) for optimization. Need at least ${MIN_TRADES_FOR_DATASET}.`
+      );
+      return null;
+    }
+
+    // 4. Convert string fields to numbers
+    trades = trades.map(t => ({
+      ...t,
+      atr: typeof t.atr === "string" ? parseFloat(t.atr) : t.atr,
+      entryPrice:
+        typeof t.entryPrice === "string"
+          ? parseFloat(t.entryPrice)
+          : t.entryPrice,
+      profit:
+        typeof t.profit === "string" ? parseFloat(t.profit) : t.profit,
+      slope: typeof t.slope === "string" ? parseFloat(t.slope) : t.slope,
+
+      // NEW: MFE/MAE from history
+      mfe: typeof t.mfe === "string" ? parseFloat(t.mfe) : t.mfe,
+      mae: typeof t.mae === "string" ? parseFloat(t.mae) : t.mae,
+      mfePercent:
+        typeof t.mfePercent === "string" ? parseFloat(t.mfePercent) : t.mfePercent,
+      maePercent:
+        typeof t.maePercent === "string" ? parseFloat(t.maePercent) : t.maePercent,
+    }));
+
+    // 5. Get valid ATR values
+    const atrValues = trades
+      .map(t => t.atr)
+      .filter(v => isFinite(v) && v > 0);
+
+    if (atrValues.length === 0) {
+      console.warn("⚠️ No valid ATR values found.");
+      return null;
+    }
+
+    const minATR = Math.min(...atrValues);
+    const maxATR = Math.max(...atrValues);
+
+    console.log(
+      `📈 ATR Range in data: ${minATR.toFixed(3)} - ${maxATR.toFixed(3)}`
+    );
+
+    const atrRanges = generateDynamicATRRanges(trades);
+
+    // 7. Filter helpers
+    const nyFilter = t => {
+      const date = new Date(t.time);
+      const utcHour = date.getUTCHours();
+      return utcHour >= 15 && utcHour < 22; // 15–22 UTC ≈ NY session
+    };
+
+    const weekendFilter = t => {
+      const d = new Date(t.time).getUTCDay();
+      // return true for weekdays (Mon–Fri)
+      return d !== 0 && d !== 6;
+    };
+
+    const nonZeroSlope = t => t.slope !== 0;
+
+    const calculateWinrate = list => {
+      const wins = list.filter(t => t.profit > 0).length;
+      const total = list.length;
+      return total > 0 ? (wins / total) * 100 : 0;
+    };
+
+    // 8. Evaluate all combos
+    const useNYOptions = [true, false];
+    const useWeekendOptions = [true, false]; // true = filter to weekdays
+    const useSlopeOptions = [true, false];
+
+    let allCombos = []; // structured combos for the bot
+    let highWRCombos = []; // for logging
+    let allATRCombos = []; // for logging
+
+    for (let [minATRRange, maxATRRange] of atrRanges) {
+      for (let useNY of useNYOptions) {
+        for (let useWeekend of useWeekendOptions) {
+          for (let useSlope of useSlopeOptions) {
+            let filtered = trades.filter(
+              t => t.atr >= minATRRange && t.atr <= maxATRRange
+            );
+
+            if (useNY) filtered = filtered.filter(nyFilter);
+            if (useWeekend) filtered = filtered.filter(weekendFilter);
+            if (useSlope) filtered = filtered.filter(nonZeroSlope);
+
+            if (filtered.length === 0) continue;
+
+            const wr = calculateWinrate(filtered);
+            const totalProfit = filtered.reduce(
+              (sum, t) => sum + (t.profit || 0),
+              0
+            );
+
+            // ---------- SLOPE RANGE STATS (same logic as in Logs) ----------
+            const slopeValues = filtered
+              .map(t => t.slope)
+              .filter(s => typeof s === "number" && !Number.isNaN(s));
+
+            const slopeCount = slopeValues.length;
+            const minSlope = slopeCount > 0 ? Math.min(...slopeValues) : null;
+            const maxSlope = slopeCount > 0 ? Math.max(...slopeValues) : null;
+            // ---------------------------------------------------------------
+
+            const exitStats = computeExitStatsForCombo(filtered);
+
+            // Convert % → decimal for bot:
+            // e.g., suggestedTP1 = 0.85 → tpPctDec = 0.0085
+            const tpPctDec = exitStats?.suggestedTP1 != null
+              ? exitStats.suggestedTP1 / 100
+              : null;
+
+            const slPctDec = exitStats?.suggestedSL != null
+              ? exitStats.suggestedSL / 100
+              : null;
+
+            // Combo format for internal bot logic
+            const combo = {
+              atrMin: minATRRange,
+              atrMax: maxATRRange,
+              useNY,
+              useWeekend,
+              useSlope,
+              winrate: wr,
+              trades: filtered.length,
+              profit: totalProfit,
+
+              slopeMin: minSlope,
+              slopeMax: maxSlope,
+
+              // NEW: TP/SL decimals (e.g. 0.0085 = 0.85%)
+              tpPctDec,
+              slPctDec,
+            };
+
+            allCombos.push(combo);
+
+            // --- Logging-oriented combo (for console.table) ---
+            const displayCombo = {
+              ATR: `${minATRRange.toFixed(4)} - ${maxATRRange.toFixed(4)}`,
+              NY: useNY,
+              Weekend: useWeekend,
+              SlopeFilter: useSlope,
+              Winrate: wr.toFixed(2),
+              Trades: filtered.length,
+              Profit: totalProfit,
+              SlopeMin: minSlope,
+              SlopeMax: maxSlope,
+
+              TP1_Pct: tpPctDec != null ? (tpPctDec * 100).toFixed(3) + "%" : null,
+              SL_Pct: slPctDec != null ? (slPctDec * 100).toFixed(3) + "%" : null,
+            };
+
+            allATRCombos.push(displayCombo);
+
+            // high‑WR list for logs (uses MIN_TRADES_ATR & MIN_WR_ATR)
+            if (filtered.length >= MIN_TRADES_ATR && wr >= MIN_WR_ATR) {
+              highWRCombos.push(displayCombo);
+            }
+          }
+        }
+      }
+    }
+
+    console.log("ATR combos with ANY trades:", allATRCombos.length);
+    console.log(
+      "ATR combos meeting thresholds:",
+      highWRCombos.length
+    );
+
+    const sortDisplayCombos = arr => {
+      arr.sort((a, b) => {
+        const wrDiff = parseFloat(b.Winrate) - parseFloat(a.Winrate);
+        if (wrDiff !== 0) return wrDiff;
+        const profitDiff = b.Profit - a.Profit;
+        if (profitDiff !== 0) return profitDiff;
+        return b.Trades - a.Trades;
+      });
+    };
+
+    if (highWRCombos.length > 0) {
+      sortDisplayCombos(highWRCombos);
+      console.log("==== HIGH WR COMBOS (Raw ATR) ====");
+      console.table(highWRCombos.slice(0, 5));
+    } else {
+      // Still show best available combos for analysis, but don't use them for trading
+      sortDisplayCombos(allATRCombos);
+      console.log("==== BEST AVAILABLE COMBOS (FOR ANALYSIS ONLY - DO NOT TRADE) ====");
+      console.table(allATRCombos.slice(0, 5));
+    }
+
+    if (allCombos.length === 0) {
+      console.warn("⚠️ No valid combos for optimizer.");
+      return null;
+    }
+
+    // ---------- HARD FILTER FOR BOT: ENFORCE BOTH MIN_TRADES_ATR AND MIN_WR_ATR ----------
+
+    // 1) Filter combos that meet BOTH minimum trades AND minimum winrate
+    const combosMeetingAllThresholds = allCombos.filter(
+      c =>
+        c.trades >= MIN_TRADES_ATR &&
+        c.winrate >= MIN_WR_ATR &&
+        typeof c.tpPctDec === "number" // require MFE‑based TP
+    );
+    // 2) If NO combos meet both thresholds, the optimizer fails. Return null to block trades.
+    if (combosMeetingAllThresholds.length === 0) {
+      console.warn(
+        `🚨 CRITICAL: No ATR combos found with at least ${MIN_TRADES_ATR} trades AND a winrate of ${MIN_WR_ATR}%+. ` +
+        `Optimizer will return null and bot will block trades to enforce priority on performance.`
+      );
+      return null;
+    }
+
+    console.log(`✅ Found ${combosMeetingAllThresholds.length} combos meeting all thresholds (Trades >= ${MIN_TRADES_ATR} AND WR >= ${MIN_WR_ATR}%).`);
+
+    combosMeetingAllThresholds.sort((a, b) => {
+      const wrDiff = b.winrate - a.winrate;
+      if (Math.abs(wrDiff) > 0.01) return wrDiff;
+
+      const profitDiff = b.profit - a.profit;
+      if (Math.abs(profitDiff) > 0.01) return profitDiff;
+
+      return b.trades - a.trades;
+    });
+
+    let bestCombo = combosMeetingAllThresholds[0];
+
+    // 🔧 Clamp SL to TP for the BEST combo only
+    if (
+      typeof bestCombo.tpPctDec === "number" &&
+      typeof bestCombo.slPctDec === "number" &&
+      bestCombo.slPctDec > bestCombo.tpPctDec
+    ) {
+      console.log(
+        `🔧 Clamping BEST combo SL from ${(bestCombo.slPctDec * 100).toFixed(3)}% ` +
+        `down to TP ${(bestCombo.tpPctDec * 100).toFixed(3)}%`
+      );
+      bestCombo.slPctDec = bestCombo.tpPctDec;
+    }
+
+    console.log("🏆 Best ATR Combo For Bot (meeting all thresholds):");
+    console.log(
+      `   ATR: ${bestCombo.atrMin.toFixed(3)} - ${bestCombo.atrMax.toFixed(3)}`
+    );
+    console.log(`   NY Session: ${bestCombo.useNY}`);
+    console.log(`   Weekday Only: ${bestCombo.useWeekend}`);
+    console.log(`   Require Slope: ${bestCombo.useSlope}`);
+    console.log(`   Winrate: ${bestCombo.winrate.toFixed(2)}%`);
+    console.log(`   Trades: ${bestCombo.trades}`);
+    console.log(`   Profit: $${bestCombo.profit.toFixed(2)}`);
+
+    if (typeof bestCombo.tpPctDec === "number") {
+      console.log(
+        `   TP1 (from MFE): ${(bestCombo.tpPctDec * 100).toFixed(3)}%`
+      );
+    }
+    if (typeof bestCombo.slPctDec === "number") {
+      console.log(
+        `   SL  (from MAE): ${(bestCombo.slPctDec * 100).toFixed(3)}%`
+      );
+    }
+
+    return bestCombo;
+  } catch (err) {
+    console.error("❌ Optimizer Error:", err.message);
+    return null;
+  }
+}
+
+async function getBestCombo() {
+
+  console.log("🔄 Refreshing best combo...");
+  let cachedBestCombo = await findBestATRCombo();
+
+  return cachedBestCombo;
+}
+
+async function checkTradeConditions(atr, slope) {
+  const now = new Date();
+
+  const lossCheck = await checkTwoConsecutiveLosses24h();
+  if (lossCheck.block) {
+    console.log(`❌ Trade blocked by loss streak filter: ${lossCheck.reason}`);
+    return {
+      allowed: false,
+      reason: lossCheck.reason,
+      atr
+    };
+  }
+
+  const bestCombo = await getBestCombo();
+
+  if (!bestCombo) {
+    console.log("⚠️ No optimized combo available - using fallback (block all)");
+    return { allowed: false, reason: "No combo found - fallback mode", atr };
+  }
+
+  // 1. ATR range
+  if (atr < bestCombo.atrMin || atr > bestCombo.atrMax) {
+    const reason = `ATR ${atr.toFixed(3)} outside optimized range [${bestCombo.atrMin.toFixed(3)} - ${bestCombo.atrMax.toFixed(3)}]`;
+    console.log(`❌ Trade blocked: ${reason}`);
+    return { allowed: false, reason, atr };
+  }
+
+  // 2. NY session
+  if (bestCombo.useNY) {
+    const utcHour = now.getUTCHours();
+    const isNYSession = utcHour >= 15 && utcHour < 22;
+    if (!isNYSession) {
+      const reason = `Not in NY session (UTC hour: ${utcHour}) - combo requires NY session`;
+      console.log(`❌ Trade blocked: ${reason}`);
+      return { allowed: false, reason, atr };
+    }
+  }
+
+  // 3. Weekday only
+  if (bestCombo.useWeekend) {
+    const dayUTC = now.getUTCDay();
+    if (dayUTC === 0 || dayUTC === 6) {
+      const reason = `Weekend trading disabled by optimized combo`;
+      console.log(`❌ Trade blocked: ${reason}`);
+      return { allowed: false, reason, atr };
+    }
+  }
+
+  // 4. Slope
+  // 4. Slope
+  if (bestCombo.useSlope) {
+    // First enforce non-zero slope (your existing condition)
+    if (slope === 0) {
+      const reason = `Slope is 0 - combo requires non-zero slope`;
+      console.log(`❌ Trade blocked: ${reason}`);
+      return { allowed: false, reason, atr, slope };
+    }
+
+    // Then enforce slope range, if optimizer computed it
+    if (
+      typeof bestCombo.slopeMin === "number" &&
+      typeof bestCombo.slopeMax === "number"
+    ) {
+      if (slope < bestCombo.slopeMin || slope > bestCombo.slopeMax) {
+        const reason = `Slope ${slope.toFixed(4)} outside optimized range ` +
+          `[${bestCombo.slopeMin.toFixed(4)} - ${bestCombo.slopeMax.toFixed(4)}]`;
+        console.log(`❌ Trade blocked: ${reason}`);
+        return { allowed: false, reason, atr, slope };
+      }
+    }
+  }
+
+  console.log(`✅ Trade conditions passed (Optimized Combo):`);
+  console.log(
+    `   ATR: ${atr.toFixed(3)} [Range: ${bestCombo.atrMin.toFixed(3)} - ${bestCombo.atrMax.toFixed(3)}]`
+  );
+
+  if (
+    typeof bestCombo.slopeMin === "number" &&
+    typeof bestCombo.slopeMax === "number"
+  ) {
+    console.log(
+      `   Slope: ${slope.toFixed(4)} [Range: ${bestCombo.slopeMin.toFixed(4)} - ${bestCombo.slopeMax.toFixed(4)}]`
+    );
+  }
+
+  console.log(`   Combo WR: ${bestCombo.winrate.toFixed(2)}%`);
+
+  return { allowed: true, reason: "All optimized conditions passed", atr };
 }
 
 async function calculateMFEandMAE(entryPrice, entryTimestamp, type) {
@@ -60,6 +720,64 @@ async function calculateMFEandMAE(entryPrice, entryTimestamp, type) {
   }
 }
 
+async function checkTwoConsecutiveLosses24h() {
+  try {
+    const res = await axios.get(
+      `${mainBotUrl}/bot/all-trades`,
+      { headers: { Authorization: `Bearer A.saboor786` } }
+    );
+
+    let trades = res.data || [];
+
+    // only trades with valid time
+    trades = trades.filter(t => t.time && !isNaN(new Date(t.time).getTime()));
+
+    if (trades.length < 2) {
+      return { block: false };
+    }
+
+    // sort latest → oldest
+    trades.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    const last1 = trades[0];
+    const last2 = trades[1];
+
+    const p1 = parseFloat(last1.profit);
+    const p2 = parseFloat(last2.profit);
+
+    console.log(`P1 = ${p1}. P2 = ${p2}`);
+
+    const isLoss1 = !isNaN(p1) && p1 < 0;
+    const isLoss2 = !isNaN(p2) && p2 < 0;
+
+    if (!(isLoss1 && isLoss2)) {
+      // last two trades are not both losses
+      return { block: false };
+    }
+
+    // if last loss is within last 24h, we are in cooldown
+    const lastLossTs = new Date(last2.time).getTime();
+    const now = Date.now();
+    const twentyFourHrs = 24 * 60 * 60 * 1000;
+
+    if (now - lastLossTs <= twentyFourHrs) {
+      const cooldownEnd = new Date(lastLossTs + twentyFourHrs).toISOString();
+      console.log(`Cooldown Until ${cooldownEnd}`);
+      return {
+        block: true,
+        reason: `2 consecutive losses, cooldown active until ${cooldownEnd}`
+      };
+    }
+
+    // last two losses are older than 24h → no block
+    return { block: false };
+
+  } catch (err) {
+    console.error("❌ Error in checkTwoConsecutiveLosses24h:", err.message);
+    // safer choice: do NOT block on error (change to block:true if you prefer)
+    return { block: false };
+  }
+}
 
 async function calculateEmaSignal() {
   try {
@@ -112,14 +830,7 @@ async function calculateEmaSignal() {
 }
 
 
-const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
-let intervalRef = null;
-let lastSignal = null; // <-- Declare here to keep it across calls
-let tradeCount = 0; // Global scope (top of the script)
-let currentBalance = 1000
-const OPTIMIZER_DAYS = 10;          // Look back period
-const MIN_TRADES_FOR_COMBO = 5;     // Minimum trades for a combo to be valid
-let tradeCandleCloses = []; // Stores candle closes while trade is open
+
 
 // Track sent times to avoid duplicate sends
 let lastSent = {
@@ -131,12 +842,6 @@ let lastSent = {
 
 const allowedDays = [1, 2, 3, 4, 5, 6]; // NO SUNDAY
 
-
-let currentTP = 0
-let currentSL = 0
-let lastTradeSignal = null
-let emaHistory = []
-let subscriptions = [];
 
 function saveSubscription(subscription) {
   subscriptions.push(subscription);
@@ -160,7 +865,6 @@ async function setLastTradeSignal(signal) {
 
 }
 
-
 function updLastSignal(newSignal) {
   lastSignal = newSignal;
 }
@@ -172,11 +876,8 @@ function SetLastDetails(signal, time, price, objectId) {
   prevTradeObjectId = objectId ? objectId : null;
 }
 
-
-
 async function updateBotStatus(active, signal, inTrade) {
   try {
-
     await axios.post(`${process.env.backendURL}/bot/status`, { // WebUrl Here
       isActive: active,
       lastSignal: signal,
@@ -216,6 +917,11 @@ async function updateLastTrade(lastTradeSignal, LastTradeTime, lastTradePrice, l
 
 function setTradeCandles(candles) {
   tradeCandleCloses = candles;
+}
+
+function updatePartial(value) {
+  partialTPHit = value
+  console.log("Update Partial is Set to True!");
 }
 
 async function getCandlesFromDb() {
@@ -265,6 +971,48 @@ async function addCandleCloseToDb(closePrice) {
   }
 }
 
+// Append one OHLCV candle to DB
+async function appendCandleToDb(candle, interval = '3m') {
+  try {
+    if (!candle || typeof candle.openTime !== 'number' || typeof candle.closeTime !== 'number') {
+      return null;
+    }
+
+    const resp = await axios.post(
+      `${process.env.backendURL}/bot/candles-data`,
+      { interval, candle },
+      { headers: { Authorization: `Bearer A.saboor786` } }
+    );
+
+    return resp.data;
+  } catch (err) {
+    console.error("❌ Failed to append candle to CandlesData in DB:", err);
+    return null;
+  }
+}
+
+async function clearCandlesDataInDb(interval = '3m') {
+  try {
+    const resp = await axios.delete(
+      `${process.env.backendURL}/bot/candles-data`,
+      {
+        params: { interval },
+        headers: { Authorization: `Bearer A.saboor786` }
+      }
+    );
+
+    if (resp.data.success) {
+      console.log("🧹 CandlesData cleared from DB");
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error("❌ Failed to clear CandlesData in DB:", err.message);
+    return false;
+  }
+}
+
 async function clearCandlesInDb() {
   try {
     const response = await axios.delete(
@@ -287,14 +1035,6 @@ async function clearCandlesInDb() {
   }
 }
 
-async function addCandleClose(closePrice) {
-  if (prevTradePrice !== null) {
-    tradeCandleCloses.push(closePrice);
-    await addCandleCloseToDb(closePrice);
-    console.log(`📈 Candle close added: ${closePrice} (Total: ${tradeCandleCloses.length})`);
-  }
-}
-
 async function getBotStatusFromDB() {
   try {
     const res = await axios.get(`${process.env.backendURL}/bot/status`,
@@ -306,7 +1046,7 @@ async function getBotStatusFromDB() {
     return res.data;
   } catch (err) {
     console.error("Failed to fetch bot status from DB:", err.message);
-    return { isActive: false, lastSignal: null, inTrade: false };
+    return { lastTradeSignal: null, LastTradeTime: null, lastTradePrice: null, lastTradeObjectId: null };
   }
 }
 
@@ -327,8 +1067,8 @@ async function getLastTradeFromDB() {
 
 async function placeOrder(signal, ema200) {
   try {
+    partialTPHit = false;  // reset for new trade
     let leverage = 10
-    const positionSizeUSD = currentBalance;
 
     const { data } = await axios.get(`${process.env.backendURL}/bot/atr`,
       {
@@ -351,17 +1091,58 @@ async function placeOrder(signal, ema200) {
 
     // const pctAway = Math.abs((LatestPrice - ema200) / ema200);
 
-
-
-    // await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
     console.log(`Slope is ${Math.abs(slope).toFixed(4)}`);
     console.log(`Atr is ${atr}`);
 
+
+    const conditionCheck = await checkTradeConditions(atr, Number(Math.abs(slope).toFixed(4)));
+
+    if (!conditionCheck || conditionCheck.allowed !== true) {
+
+      console.log(`🚫 Order NOT placed for ${signal}: ${conditionCheck.reason}`);
+    }
+    else if (conditionCheck.allowed == true && LiveTrading) {
+
+      try {
+        await getBalance();
+        await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
+      } catch (err) {
+        console.log(err.msg);
+      }
+
+    }
     const entryPrice = await getPrice();
 
-    currentTP = 0.0085 // 0.008 > 0.8%
-    currentSL = getSL(atr)
-    console.log(currentSL)
+    if (conditionCheck.allowed == true) {
+      // Get TP/SL from the same best combo used in conditions
+      const bestCombo = await getBestCombo();
+      const tpFromCombo = bestCombo?.tpPctDec;
+      const slFromCombo = bestCombo?.slPctDec;
+
+      // Use TP1 as the only TP for now; fall back to 0.6% if not available
+      currentTP = typeof tpFromCombo === "number" ? tpFromCombo : 0.0035;
+
+      // For SL you can either:
+      //  - use MAE‑based slFromCombo, or
+      //  - keep your old ATR‑based SL
+      // Here we try MAE‑based, fallback to ATR * 2.5 (converted to % of entry):
+
+      let defaultSlPct = (getSL(atr) / entryPrice); // convert old ATR-based abs SL into %
+      currentSL = typeof slFromCombo === "number" ? slFromCombo : defaultSlPct;
+
+      console.log(
+        `Using TP=${(currentTP * 100).toFixed(3)}% and SL=${(currentSL * 100).toFixed(3)}% from best combo`
+      );
+
+    } else {
+
+      currentTP = tpVal // 0.6% tp
+      currentSL = getSL(atr)
+      console.log(currentSL)
+    }
+
+
+    const positionSizeUSD = currentBalance;
 
     const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
 
@@ -383,6 +1164,7 @@ async function placeOrder(signal, ema200) {
       time: pakTime.toISOString(), // Saved in ISO format but in PKT
       price: entryPrice,
       atr: atr,
+      real: conditionCheck.allowed ? true : false,
       slope: Number(Math.abs(slope).toFixed(4)),
       positionSize: pairQuantity,
       positionSizeUSD: positionSizeUSD,
@@ -421,23 +1203,6 @@ async function getBalance() {
   const balanceData = await futuresGetSigned('/fapi/v2/account');
   let availableBalance = parseFloat(balanceData.availableBalance);
 
-  // if (availableBalance < 75) {
-
-  //   availableBalance = availableBalance * 0.75
-
-  // } else if (availableBalance < 50) {
-
-  //   availableBalance = availableBalance * 0.5
-
-  // } else if (availableBalance < 25) {
-
-  //   availableBalance = availableBalance * 0.25
-
-  // }
-
-  const currentPrice = await getLatestPrice(); // ✅ fetch current price
-  // const dynamicPct = positionSizeFn(currentPrice); // dynamically calculate percentage
-
   // Use 98% of available balance
   let usableBalance = availableBalance * 0.95;
 
@@ -448,49 +1213,6 @@ async function getBalance() {
   console.log(`✅ Current Futures Wallet Balance: $${currentBalance}`);
 
 }
-
-// async function isMaxDrawdownHit(maxDrawdownLimit = 20) {
-//   try {
-//     const res = await axios.get(`${process.env.backendURL}/bot/all-trades`, {
-//       headers: { Authorization: `Bearer A.saboor786` }
-//     });
-
-//     const allTrades = res.data;
-
-//     // Get today’s PKT date string (like "2025-07-15")
-//     const now = new Date();
-//     const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-//     const todayStr = pkNow.toISOString().slice(0, 10);
-
-//     // Filter today's trades using PKT-based trade time
-//     const todaysTrades = allTrades
-//       .filter(trade => {
-//         const tradeDate = new Date(new Date(trade.time).getTime() + 5 * 60 * 60 * 1000)
-//           .toISOString()
-//           .slice(0, 10);
-//         return tradeDate === todayStr;
-//       })
-//       .sort((a, b) => a.tradeNumber - b.tradeNumber); // Sort ascending
-
-//     // Cumulative equity calculation
-//     let equity = 0;
-//     let minEquity = 0;
-
-//     for (const trade of todaysTrades) {
-//       const profit = parseFloat(trade.profit) || 0;
-//       equity += profit;
-//       minEquity = Math.min(minEquity, equity);
-//     }
-
-//     const drawdown = Math.abs(minEquity);
-
-//     return drawdown >= maxDrawdownLimit;
-
-//   } catch (err) {
-//     console.error("❌ Error in isMaxDrawdownHit:", err.message);
-//     return false;
-//   }
-// }
 
 
 async function signalChanged(newSignal, restStatus, ema200) {
@@ -535,6 +1257,15 @@ async function signalChanged(newSignal, restStatus, ema200) {
   }
 }
 
+async function addCandleClose(closePrice) {
+  if (prevTradePrice !== null) {
+    tradeCandleCloses.push(closePrice);
+    await addCandleCloseToDb(closePrice);
+    console.log(`📈 Candle close added: ${closePrice} (Total: ${tradeCandleCloses.length})`);
+  }
+}
+
+
 async function handleMfeandMea(prevTradePrice, prevTradeTime, prevTradeType) {
 
   try {
@@ -572,14 +1303,7 @@ async function handleMfeandMea(prevTradePrice, prevTradeTime, prevTradeType) {
 async function checkSignal() {
 
   try {
-    const now = new Date();
-    const pkDate = new Date(now.getTime() + 5 * 60 * 60 * 1000); // Shift to PKT
-    const pkHour = (now.getUTCHours() + 5) % 24;
-    const pkMinute = pkDate.getMinutes();
-    const pkDay = pkDate.getDay(); // ✅ correct
-
     let finalRest = false;
-
 
     let res = await calculateEmaSignal()
     const newSignal = res.msg.signal;
@@ -588,9 +1312,26 @@ async function checkSignal() {
 
     const { ohlcv, status } = getLatestCandle();
     if (status === 1 && ohlcv && ohlcv.length > 0) {
-      const latestCandleClose = ohlcv[ohlcv.length - 1].closes; // Get last candle's close
+      const last = ohlcv[ohlcv.length - 1];
+
+      // 1) Your existing trade-MFE closes
+      const latestCandleClose = last.closes;
       addCandleClose(latestCandleClose);
+
+      // 2) NEW: append full OHLCV to CandlesData
+      const candleForDb = {
+        openTime: last.openTime,
+        open: last.open,
+        high: last.high,
+        low: last.low,
+        close: last.closes,  // note: schema uses "close"
+        volume: last.volume,
+        closeTime: last.closeTime,
+      };
+
+      await appendCandleToDb(candleForDb, '3m');
     }
+
 
     if (newSignal == undefined) {
 
@@ -609,43 +1350,6 @@ async function checkSignal() {
 
     // Still check TP/SL in all cases
     await checkTPorSL(finalRest ? null : newSignal);
-
-
-    ////// The Reminders here 
-
-    try {
-
-
-
-      if (!allowedDays.includes(pkDay)) {
-        return; // 🚫 Do nothing on Sundays
-      }
-
-      const currentTime = `${pkHour.toString().padStart(2, "0")}:${pkMinute
-        .toString()
-        .padStart(2, "0")}`;
-
-      const triggerTimes = ["10:00", "13:00", "16:00", "19:00"];
-
-      for (const time of triggerTimes) {
-        if (currentTime === time && lastSent[time] !== pkDate.toDateString()) {
-
-          // 🔥 Trigger your WhatsApp API here
-          sendWhatsappMessage();
-
-          lastSent[time] = pkDate.toDateString(); // Mark as sent for today
-        }
-      }
-
-
-    }
-    catch (err) {
-      console.log(err.message);
-    }
-
-
-
-    //////
   }
   catch (err) {
     const msg = err?.response?.data?.msg || err.message || "Unknown error";
@@ -654,17 +1358,20 @@ async function checkSignal() {
 
 }
 
-function sendWhatsappMessage() {
-  return axios.get("https://www.anuarchitect.com/api/sendReminder");
+function createPositionSizeCalculator(price1, pct1, price2, pct2) {
+  const slope = (pct2 - pct1) / (price2 - price1);
+  return function (price) {
+    return +(pct1 + slope * (price - price1));
+  };
 }
 
 
 function getSL(atr) {
-  let sl = atr * 1.5;
+  let sl = atr * slVal;
   return sl.toFixed(4);
 }
 
-async function setTpSl() {
+async function setTpSl(partialHit) {
   try {
     const resp = await axios.get(`${process.env.backendURL}/bot/get-trade`, {
       headers: { Authorization: `Bearer A.saboor786` }
@@ -682,15 +1389,26 @@ async function setTpSl() {
       return { ok: false, msg: "bad-entry" };
     }
 
-    const tpPctDec = 0.0085; // decimal (e.g., 0.006 = 0.6%)
-    const slPctDec = getSL(atr); // decimal
+    const bestCombo = await getBestCombo();
+
+    let tpPctDec = typeof bestCombo?.tpPctDec === "number"
+      ? bestCombo.tpPctDec
+      : tpVal; // 0.6%
+
+    let defaultSlPct = (getSL(atr) / entry);
+    let slPctDec = typeof bestCombo?.slPctDec === "number"
+      ? bestCombo.slPctDec
+      : defaultSlPct;
+
+    // Clamp here as well
+    if (slPctDec > tpPctDec) slPctDec = tpPctDec;
 
     currentTP = tpPctDec;
-    currentSL = slPctDec;
+    currentSL = partialHit ? 0 : slPctDec;
 
     console.log(
-      `🎯 currentTP/currentSL set from active trade entry=${entry}: ` +
-      `TP=${(tpPctDec * 100).toFixed(3)}% SL=${(slPctDec * 100).toFixed(3)}%`
+      `🎯 currentTP/currentSL set from best combo: ` +
+      `TP=${(tpPctDec * 100).toFixed(3)}% SL=${(currentSL * 100).toFixed(3)}%`
     );
 
     return { ok: true, entryPrice: entry, tpPctDec, slPctDec };
@@ -706,7 +1424,14 @@ async function setTpSl() {
 
 async function startLoop() {
 
+  // const info = await axios.get("https://fapi.binance.com/fapi/v1/exchangeInfo");
+  // const sym = info.data.symbols.find(s => s.symbol === "BNBUSDT");
+  // console.log(sym);
+
+  // await checkTradeConditions(1.80, 0.0009);
   // await getBalance();
+
+  checkTwoConsecutiveLosses24h()
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
   console.log("Bot loop started.");
@@ -729,7 +1454,7 @@ async function stopLoop() {
       });
 
     if (res?.data) {
-      await closePosition(symbol);
+      if (LiveTrading) await closePosition(symbol);
       await axios.post(`${process.env.backendURL}/bot/clear-trade`,
         {},
         {
@@ -743,6 +1468,7 @@ async function stopLoop() {
     await updateBotStatus(false, null, false);
     await updateLastTrade(null, null, null, null)
     await clearCandlesInDb();
+    await clearCandlesDataInDb();
     tradeCandleCloses = [];
 
     console.log("Bot stopped.");
@@ -751,7 +1477,7 @@ async function stopLoop() {
     console.error("Error in stopLoop:", err.response?.status, err.message);
     await updateBotStatus(false, null, false);
     await updateLastTrade(null, null, null, null)
-    await clearCandlesInDb();
+    await clearCandlesDataInDb();
     tradeCandleCloses = [];
     console.log("Bot force-stopped due to error.");
   }
@@ -815,7 +1541,7 @@ async function waitForNext3MinCandle() {
     console.log("⏰ Delay over — executing start");
 
     try {
-
+      await initSymbolSettings();
       startLoop(); // should log "✅ startLoop triggered"
     } catch (err) {
       console.error("❌ Failed to start bot inside timeout:", err.message);
@@ -837,7 +1563,7 @@ async function checkTPorSL(lastSignal) {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
         }
       }); // WebUrl here 
-    const { entryPrice, type, positionSize, positionSizeUSD, leverage, atr, slope, candleTimestamp } = tradeRes.data;
+    let { entryPrice, type, positionSize, positionSizeUSD, leverage, atr, slope, candleTimestamp, real, realizedProfit } = tradeRes.data;
 
     console.log("Active Trade Found ✅");
 
@@ -852,13 +1578,82 @@ async function checkTPorSL(lastSignal) {
       const currentPrice = await getPrice();
 
       // Set TP and check SL
-      const tp = type === "BUY" ? entryPrice * (1 + currentTP) : entryPrice * (1 - currentTP);
-      const softSL = type === "BUY"
-        ? Number(entryPrice) - Number(currentSL)
-        : Number(entryPrice) + Number(currentSL);
-      console.log(`Entry Price is = ${entryPrice}. Current SL is = ${currentSL}`);
+      const tp = type === "BUY"
+        ? entryPrice * (1 + currentTP)
+        : entryPrice * (1 - currentTP);
 
-      console.log(`Soft SL is = ${softSL}`)
+      let softSL = type === "BUY"
+        ? entryPrice * (1 - currentSL)
+        : entryPrice * (1 + currentSL);
+
+      console.log(`Entry Price = ${entryPrice}. TP% = ${(currentTP * 100).toFixed(3)}%. SL% = ${(currentSL * 100).toFixed(3)}%.`);
+
+      // ===== PARTIAL TP at 60% of TP =====
+      const partialLevelPct = 0.6;
+      const partialTPPrice = type === "BUY"
+        ? entryPrice * (1 + currentTP * partialLevelPct)
+        : entryPrice * (1 - currentTP * partialLevelPct);
+
+      const reachedPartial = type === "BUY"
+        ? currentPrice >= partialTPPrice
+        : currentPrice <= partialTPPrice;
+
+      if (!partialTPHit && reachedPartial && real && LiveTrading) {
+        try {
+
+          console.log(`🎯 Reached 60% of TP. Taking 50% off and moving stop to break-even.`);
+
+          const fraction = 0.5;
+
+          await closePartialByQty(type, positionSize, fraction);
+
+          // 2) Compute closed profit for this partial
+          const profitPercentPartial =
+            type === "BUY"
+              ? (currentPrice - entryPrice) / entryPrice
+              : (entryPrice - currentPrice) / entryPrice;
+
+          let partialNotional = positionSizeUSD * fraction;
+          let partialProfitDollars = profitPercentPartial * partialNotional;
+
+          // Optional: apply half of your flat fee
+          partialProfitDollars -= 0.45 * fraction;
+
+          console.log(`💰 Partial profit realized: $${partialProfitDollars.toFixed(2)}`);
+
+          // 3) Update local positionSize / positionSizeUSD so final close uses the remaining
+          const remainingPositionSizeUSD = positionSizeUSD * (1 - fraction);
+          const remainingPositionSize = positionSize * (1 - fraction);
+
+          positionSizeUSD = remainingPositionSizeUSD; // overwrite local vars
+          positionSize = remainingPositionSize;
+
+          // 4) Update active trade in DB: new sizes + add closed profit to realizedProfit
+          console.log(`Updating Position Size = ${positionSize}, Position Size USD = ${positionSizeUSD} and Partial Profit Dollars = ${partialProfitDollars.toFixed(2)}`);
+
+          await axios.post(
+            `${process.env.backendURL}/bot/upd-partial`,
+            {
+              positionSize: remainingPositionSize,
+              positionSizeUSD: remainingPositionSizeUSD,
+              closedProfit: partialProfitDollars.toFixed(2),
+            },
+            { headers: { Authorization: `Bearer A.saboor786` } }
+          );
+
+
+          // 5) Move stop to break-even for remaining position
+          currentSL = 0;       // 0% SL
+          softSL = entryPrice; // stop at entry
+
+          partialTPHit = true;
+        } catch (e) {
+          console.error("❌ Failed to update active trade after partial:", e.message);
+        }
+      }
+
+
+      // ===== continue with normal exit logic =====
 
       const slBroken = await isSLBroken(type);
 
@@ -874,7 +1669,7 @@ async function checkTPorSL(lastSignal) {
 
       if (hitTP || earlyExit || hardSL) {
 
-        // await closePosition('SUIUSDT');
+        if (real && LiveTrading) await closePositionByQty(type, positionSize);
 
         // Calculate profit %
         const profitPercent =
@@ -882,17 +1677,18 @@ async function checkTPorSL(lastSignal) {
             ? (currentPrice - entryPrice) / entryPrice
             : (entryPrice - currentPrice) / entryPrice;
 
-        // Use actual stored position size in USD
-        const profitDollars = profitPercent * positionSizeUSD - 0.45; // Fee
+        const profitDollarsRemaining = profitPercent * positionSizeUSD - 0.45; // fee on final leg
 
+        const totalProfitDollars = realizedProfit + profitDollarsRemaining;
 
+        console.log(`💰 Total profit for trade (partials + final): $${totalProfitDollars.toFixed(2)}`);
 
         // Increment trade count
         tradeCount++;
 
         // Save trade history
         const historyResponse = await axios.post(`${process.env.backendURL}/bot/save-history`, { // WebUrl Here
-          profit: profitDollars.toFixed(2),
+          profit: totalProfitDollars.toFixed(2),
           entryPrice: entryPrice,
           atr: atr,
           slope: slope,
@@ -914,6 +1710,30 @@ async function checkTPorSL(lastSignal) {
         await updateLastTrade(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)
         SetLastDetails(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)
 
+        if (real) {  // upd in Real Bot 
+          // Save trade history
+          await axios.post(`${mainBotUrl}/bot/save-history`, { // WebUrl Here
+            bot: symbol,
+            profit: totalProfitDollars.toFixed(2),
+            entryPrice: entryPrice,
+            atr: atr,
+            slope: slope,
+            time: new Date().toISOString(),
+            tradeNumber: tradeCount,
+            type: type,
+            positionSize: positionSize,
+            positionSizeUSD: positionSizeUSD,
+            leverage: leverage,
+          },
+            {
+              headers: {
+                Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
+              }
+            });
+
+
+        }
+
         // Clear active trade
         await updateBotStatus(true, lastSignal, false);
         await axios.post(`${process.env.backendURL}/bot/clear-trade`,
@@ -924,7 +1744,6 @@ async function checkTPorSL(lastSignal) {
             }
           }); // WebUrl here
 
-        // await getBalance();
 
         console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
 
@@ -980,19 +1799,13 @@ async function isSLBroken(type) {
 async function placeFuturesOrderWithDollarAmount(side, dollarAmount) {
 
   // 1. Get current price
-  const priceResponse = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=SUIUSDT`);
-  const price = parseFloat(priceResponse.data.price);
+  const price = await getPrice();
 
   const rawQty = dollarAmount / price;
   const quantity = Math.ceil(rawQty * 10) / 10; // rounds UP to 1 decimal place
 
-  await setMarginType("SUIUSDT", 'ISOLATED');
-
-  // 3. Set leverage
-  await setLeverage("SUIUSDT", 10); // Leverage set Manually. Set the Leverage to 10 after Testing
-
   // 4. Place order
-  const order = await placeFuturesOrder("SUIUSDT", side, quantity);
+  const order = await placeFuturesOrder(symbol, side, quantity);
 
   return order;
 }
@@ -1068,44 +1881,6 @@ async function futuresGetSigned(endpoint, params = {}) {
   return response.data;
 }
 
-
-async function closePosition(symbol) {
-
-  try {
-    // 1. Get current open position
-    const accountInfo = await futuresGetSigned('/fapi/v2/positionRisk');
-    const position = accountInfo.find(p => p.symbol === symbol);
-
-    if (!position) {
-      console.error("⚠️ Position not found");
-      return;
-    }
-
-    const qty = Math.abs(parseFloat(position.positionAmt));
-    const side = parseFloat(position.positionAmt) > 0 ? "SELL" : "BUY"; // reverse side
-
-    if (qty === 0) {
-      console.log("✅ No open position to close");
-      return;
-    }
-
-    // 2. Close position with market order
-    const result = await futuresPostSigned('/fapi/v1/order', {
-      symbol,
-      side,
-      type: 'MARKET',
-      quantity: qty,
-      reduceOnly: true, // ensures it won't open a new position
-    });
-
-    console.log("✅ Position closed:", result);
-    return result;
-
-  } catch (err) {
-    console.error("❌ Failed to close position:", err.response?.data || err.message);
-  }
-}
-
 async function getFuturesBalance(req, res) {
   const balance = await futuresGetSigned('/fapi/v2/balance');
   res.send({
@@ -1113,6 +1888,71 @@ async function getFuturesBalance(req, res) {
   })
 }
 
+
+// Close full position using our DB quantity × 1.5 (reduceOnly keeps it safe)
+async function closePositionByQty(type, positionSize) {
+  try {
+    const side = type === 'BUY' ? 'SELL' : 'BUY';  // reverse side
+    const baseQty = Math.abs(parseFloat(positionSize));
+
+    if (baseQty === 0 || !Number.isFinite(baseQty)) {
+      console.log("✅ No position size to close based on DB");
+      return;
+    }
+
+    const multiplier = 1.5;
+    const qty = +(baseQty * multiplier).toFixed(3); // send 1.5x, rounded to 3 dec
+
+    const result = await futuresPostSigned('/fapi/v1/order', {
+      symbol,
+      side,
+      type: 'MARKET',
+      quantity: qty,
+      reduceOnly: true, // ensures it ONLY reduces existing position
+    });
+
+    console.log(`✅ Position close request by DB qty * ${multiplier} (${qty}):`, result);
+    return result;
+  } catch (err) {
+    console.error("❌ Failed to close position by qty:", err.response?.data || err.message);
+  }
+}
+
+async function closePartialByQty(type, positionSize, fraction = 0.5) {
+  try {
+    const side = type === 'BUY' ? 'SELL' : 'BUY';
+    const fullQty = Math.abs(parseFloat(positionSize));
+    const qty = +(fullQty * fraction).toFixed(3);
+
+    if (qty === 0 || !Number.isFinite(qty)) {
+      console.log("✅ No partial qty to close based on DB");
+      return;
+    }
+
+    const result = await futuresPostSigned('/fapi/v1/order', {
+      symbol,
+      side,
+      type: 'MARKET',
+      quantity: qty,
+      reduceOnly: true,
+    });
+
+    console.log(`✅ Partially closed ${fraction * 100}% by DB qty (${qty}):`, result);
+    return result;
+  } catch (err) {
+    console.error("❌ Failed to partially close by qty:", err.response?.data || err.message);
+  }
+}
+
+async function initSymbolSettings() {
+  try {
+    await setMarginType(symbol, 'ISOLATED');
+    await setLeverage(symbol, 10);
+    console.log("✅ Margin type & leverage set for symbol", symbol);
+  } catch (err) {
+    console.error("❌ Failed to init symbol settings:", err.response?.data || err.message);
+  }
+}
 
 
 
@@ -1134,5 +1974,7 @@ module.exports = {
   getLastTradeFromDB,
   SetLastDetails,
   setTradeCandles,
-  getCandlesFromDb
+  getCandlesFromDb,
+  clearCandlesDataInDb,
+  updatePartial
 };
