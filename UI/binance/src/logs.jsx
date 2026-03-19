@@ -62,8 +62,8 @@ export default function Logs() {
 
         // Set these from UI or manually:
         let useCustomRange = true;              // if false → uses last X days
-        let customStartDate = "2025-12-12";     // yyyy-mm-dd
-        let customEndDate = "2026-1-12";       // yyyy-mm-dd  (optional)
+        let customStartDate = "2025-2-18";     // yyyy-mm-dd
+        let customEndDate = "2026-3-18";       // yyyy-mm-dd  (optional)
 
         // let customStartDate = "2026-1-12";     // yyyy-mm-dd
         // let customEndDate = "2026-1-18";       // yyyy-mm-dd  (optional)
