@@ -38,6 +38,7 @@ export default function Logs() {
   let [tProfit, setTprofit] = useState("")
 
   useEffect(() => {
+    
 
     async function fetchTrades() {
       try {

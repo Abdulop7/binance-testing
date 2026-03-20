@@ -1164,7 +1164,7 @@ async function placeOrder(signal, ema200) {
       time: pakTime.toISOString(), // Saved in ISO format but in PKT
       price: entryPrice,
       atr: atr,
-      real: conditionCheck.allowed ? true : false,
+      real: conditionCheck.allowed && LiveTrading ? true : false,
       slope: Number(Math.abs(slope).toFixed(4)),
       positionSize: pairQuantity,
       positionSizeUSD: positionSizeUSD,
