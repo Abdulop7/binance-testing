@@ -7,11 +7,17 @@ const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
 let LiveTrading = false
 let symbol = process.env.symbol;
 let currentBalance = 1000
-let tpVal = 0.0085
-let slVal = 1.5
+const SL_ATR_MULT = 1.5;
+const RR_TARGET = 1.5;
+
+// Adjust these for your symbol's tickSize / lotSize
+const PRICE_PRECISION = 2;  // e.g. 2 decimals for BNBUSDT
+const QTY_PRECISION = 1;
 
 //---------------------------
 
+const partialLevelPct = 0.3; // Take Partial At 30% tp
+const TP_ATR_MULT = SL_ATR_MULT * RR_TARGET;
 const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
 const mainBotUrl = "https://binance-project-cp53cw.fly.dev"
 let intervalRef = null;
@@ -40,10 +46,79 @@ const MIN_WR_ATR = 50;        // minimum winrate% for a combo to be considered "
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
 // Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
 
+function atrMultToPctDec(atr, entryPrice, atrMult) {
+  // returns decimal percent (0.01 = 1%)
+  return (atr * atrMult) / entryPrice;
+}
+
 async function getPrice() {
 
   let Fprice = await getLatestPrice()
   return Fprice
+}
+
+function roundPrice(p) {
+  return Number(p.toFixed(PRICE_PRECISION));
+}
+
+function roundQty(q) {
+  return Number(q.toFixed(QTY_PRECISION));
+}
+
+// type: "BUY" (long) or "SELL" (short)
+// entryPrice: executed entry
+// quantity: total position size in units (BNB, SOL, etc.)
+// tpPct: full TP as decimal (e.g. 0.0085 = 0.85%)
+// slPct: SL as decimal
+// partialFraction: part of position to close at partial TP (0.5 = 50%)
+async function placeBracketOrders(type, entryPrice, quantity, tpPct, slPct, partialFraction = 0.5) {
+  const side = type === "BUY" ? "SELL" : "BUY"; // TPs/SL are opposite side
+
+  const fullQty = Math.abs(quantity);
+  const partialQty = roundQty(fullQty * partialFraction);
+  const finalQty = roundQty(fullQty - partialQty);
+
+  if (!partialQty || !finalQty) {
+    console.log("⚠️ placeBracketOrders: qtys too small", { fullQty, partialQty, finalQty });
+    return;
+  }
+
+  // Full TP price (e.g. 0.85% from entry)
+  const tpPrice = type === "BUY"
+    ? entryPrice * (1 + tpPct)
+    : entryPrice * (1 - tpPct);
+
+  // Partial TP — here I set it at 30% of full TP distance (same as your code).
+
+  const partialTPPrice = type === "BUY"
+    ? entryPrice * (1 + tpPct * partialLevelPct)
+    : entryPrice * (1 - tpPct * partialLevelPct);
+
+  const partialOrder = {
+    symbol,
+    side,
+    type: "LIMIT",
+    timeInForce: "GTC",
+    quantity: partialQty,
+    price: roundPrice(partialTPPrice),
+    reduceOnly: true,
+  };
+
+  const finalOrder = {
+    symbol,
+    side,
+    type: "LIMIT",
+    timeInForce: "GTC",
+    quantity: finalQty,
+    price: roundPrice(tpPrice),
+    reduceOnly: true,
+  };
+
+  console.log("📌 Placing partial TP:", partialOrder);
+  await futuresPostSigned("/fapi/v1/order", partialOrder);
+
+  console.log("📌 Placing final TP:", finalOrder);
+  await futuresPostSigned("/fapi/v1/order", finalOrder);
 }
 
 
@@ -1097,6 +1172,8 @@ async function placeOrder(signal, ema200) {
 
     const conditionCheck = await checkTradeConditions(atr, Number(Math.abs(slope).toFixed(4)));
 
+    let orderExecuted = false;
+
     if (!conditionCheck || conditionCheck.allowed !== true) {
 
       console.log(`🚫 Order NOT placed for ${signal}: ${conditionCheck.reason}`);
@@ -1106,6 +1183,7 @@ async function placeOrder(signal, ema200) {
       try {
         await getBalance();
         await placeFuturesOrderWithDollarAmount(signal, currentBalance); // 2nd Arrgument is Position Size in $.
+        orderExecuted = true;
       } catch (err) {
         console.log(err.msg);
       }
@@ -1120,14 +1198,14 @@ async function placeOrder(signal, ema200) {
       const slFromCombo = bestCombo?.slPctDec;
 
       // Use TP1 as the only TP for now; fall back to 0.6% if not available
-      currentTP = typeof tpFromCombo === "number" ? tpFromCombo : 0.0035;
+      currentTP = typeof tpFromCombo === "number" ? tpFromCombo : atrMultToPctDec(atr, entry, TP_ATR_MULT);
 
       // For SL you can either:
       //  - use MAE‑based slFromCombo, or
       //  - keep your old ATR‑based SL
       // Here we try MAE‑based, fallback to ATR * 2.5 (converted to % of entry):
 
-      let defaultSlPct = (getSL(atr) / entryPrice); // convert old ATR-based abs SL into %
+      let defaultSlPct = atrMultToPctDec(atr, entry, SL_ATR_MULT); // convert old ATR-based abs SL into %
       currentSL = typeof slFromCombo === "number" ? slFromCombo : defaultSlPct;
 
       console.log(
@@ -1135,16 +1213,31 @@ async function placeOrder(signal, ema200) {
       );
 
     } else {
-
-      currentTP = tpVal // 0.6% tp
-      currentSL = getSL(atr)
-      console.log(currentSL)
+      currentSL = atrMultToPctDec(atr, entryPrice, SL_ATR_MULT);
+      currentTP = atrMultToPctDec(atr, entryPrice, TP_ATR_MULT);
     }
 
 
-    const positionSizeUSD = currentBalance;
+    // --- Position size used for DB and bracket orders ---
+    const positionSizeUSD = currentBalance;                    // same as you send to Binance
+    const pairQuantity = Number((positionSizeUSD / entryPrice).toFixed(1)); // base asset qty
 
-    const pairQuantity = (positionSizeUSD / entryPrice).toFixed(1); // ✅ More precise for low-price tokens
+    // If we actually opened a futures position, place bracket orders on Binance
+    if (orderExecuted && LiveTrading) {
+      console.log(
+        `🔧 Placing bracket: entry=${entryPrice}, qty=${pairQuantity}, ` +
+        `TP=${(currentTP * 100).toFixed(3)}%, SL=${(currentSL * 100).toFixed(3)}%`
+      );
+
+      await placeBracketOrders(
+        signal,        // "BUY" or "SELL"
+        entryPrice,
+        pairQuantity,
+        currentTP,     // decimal, e.g. 0.0085
+        currentSL,     // decimal
+        0.5            // 50% partial
+      );
+    }
 
 
     // ⏰ Pakistan time manually (UTC + 5)
@@ -1158,6 +1251,18 @@ async function placeOrder(signal, ema200) {
 
     lastTradeSignal = signal;
 
+    const fullTpPrice = signal === "BUY"
+      ? entryPrice * (1 + currentTP)
+      : entryPrice * (1 - currentTP);
+
+    const partialTpPrice = signal === "BUY"
+      ? entryPrice * (1 + currentTP * partialLevelPct)
+      : entryPrice * (1 - currentTP * partialLevelPct);
+
+    const slPrice = signal === "BUY"
+      ? entryPrice * (1 - currentSL)
+      : entryPrice * (1 + currentSL);
+
 
     await axios.post(`${process.env.backendURL}/bot/save-trade`, { // WebUrl Here
       signal: signal,
@@ -1169,7 +1274,10 @@ async function placeOrder(signal, ema200) {
       positionSize: pairQuantity,
       positionSizeUSD: positionSizeUSD,
       leverage: leverage,
-      candleTimestamp // 🆕 New field
+      candleTimestamp, // 🆕 New field
+      tpPrice: fullTpPrice,
+      partialTpPrice,
+      slPrice,
     },
       {
         headers: {
@@ -1358,19 +1466,6 @@ async function checkSignal() {
 
 }
 
-function createPositionSizeCalculator(price1, pct1, price2, pct2) {
-  const slope = (pct2 - pct1) / (price2 - price1);
-  return function (price) {
-    return +(pct1 + slope * (price - price1));
-  };
-}
-
-
-function getSL(atr) {
-  let sl = atr * slVal;
-  return sl.toFixed(4);
-}
-
 async function setTpSl(partialHit) {
   try {
     const resp = await axios.get(`${process.env.backendURL}/bot/get-trade`, {
@@ -1393,9 +1488,9 @@ async function setTpSl(partialHit) {
 
     let tpPctDec = typeof bestCombo?.tpPctDec === "number"
       ? bestCombo.tpPctDec
-      : tpVal; // 0.6%
+      : atrMultToPctDec(atr, entry, TP_ATR_MULT); // 0.6%
 
-    let defaultSlPct = (getSL(atr) / entry);
+    let defaultSlPct = atrMultToPctDec(atr, entry, SL_ATR_MULT);
     let slPctDec = typeof bestCombo?.slPctDec === "number"
       ? bestCombo.slPctDec
       : defaultSlPct;
@@ -1565,6 +1660,8 @@ async function checkTPorSL(lastSignal) {
       }); // WebUrl here 
     let { entryPrice, type, positionSize, positionSizeUSD, leverage, atr, slope, candleTimestamp, real, realizedProfit } = tradeRes.data;
 
+    realizedProfit = Number(realizedProfit) || 0;
+
     console.log("Active Trade Found ✅");
 
     if (parseInt(candleTimestamp) === currentCandleTimestamp) {
@@ -1574,10 +1671,23 @@ async function checkTPorSL(lastSignal) {
     }
     else {
 
-      // Get the current market price
-      const currentPrice = await getPrice();
+      // === Use LAST 3m CANDLE instead of tick price ===
+      const { ohlcv, status } = getLatestCandle();
+      if (!ohlcv || !ohlcv.length) {
+        console.log("⚠️ No candles available for TP/SL check");
+        return;
+      }
+      const lastCandle = ohlcv[ohlcv.length - 1];
+      const high = lastCandle.high;
+      const low = lastCandle.low;
 
-      // Set TP and check SL
+      // Sanity
+      if (!Number.isFinite(high) || !Number.isFinite(low)) {
+        console.log("⚠️ Invalid high/low in last candle:", lastCandle);
+        return;
+      }
+
+      // Compute TP / SL prices from entry + currentTP/currentSL
       const tp = type === "BUY"
         ? entryPrice * (1 + currentTP)
         : entryPrice * (1 - currentTP);
@@ -1586,50 +1696,54 @@ async function checkTPorSL(lastSignal) {
         ? entryPrice * (1 - currentSL)
         : entryPrice * (1 + currentSL);
 
-      console.log(`Entry Price = ${entryPrice}. TP% = ${(currentTP * 100).toFixed(3)}%. SL% = ${(currentSL * 100).toFixed(3)}%.`);
+      console.log(
+        `Entry=${entryPrice}, TP=${tp.toFixed(4)}, SL=${softSL.toFixed(4)}, ` +
+        `high=${high}, low=${low}, TP%=${(currentTP * 100).toFixed(3)}%, SL%=${(currentSL * 100).toFixed(3)}%`
+      );
 
       // ===== PARTIAL TP at 60% of TP =====
-      const partialLevelPct = 0.6;
+
       const partialTPPrice = type === "BUY"
         ? entryPrice * (1 + currentTP * partialLevelPct)
         : entryPrice * (1 - currentTP * partialLevelPct);
 
+      // Did this candle touch partial TP?
       const reachedPartial = type === "BUY"
-        ? currentPrice >= partialTPPrice
-        : currentPrice <= partialTPPrice;
+        ? high >= partialTPPrice
+        : low <= partialTPPrice;
 
       if (!partialTPHit && reachedPartial && real && LiveTrading) {
         try {
+          console.log(
+            `🎯 Candle hit partial TP level (${partialTPPrice.toFixed(4)}). ` +
+            `Taking 50% off and moving stop to break-even.`
+          );
 
-          console.log(`🎯 Reached 60% of TP. Taking 50% off and moving stop to break-even.`);
-
-          const fraction = 0.5;
-
-          await closePartialByQty(type, positionSize, fraction);
+          const fraction = 0.5; // Position Size for Partial
 
           // 2) Compute closed profit for this partial
           const profitPercentPartial =
             type === "BUY"
-              ? (currentPrice - entryPrice) / entryPrice
-              : (entryPrice - currentPrice) / entryPrice;
+              ? (partialTPPrice - entryPrice) / entryPrice
+              : (entryPrice - partialTPPrice) / entryPrice;
 
           let partialNotional = positionSizeUSD * fraction;
           let partialProfitDollars = profitPercentPartial * partialNotional;
 
-          // Optional: apply half of your flat fee
           partialProfitDollars -= 0.45 * fraction;
 
           console.log(`💰 Partial profit realized: $${partialProfitDollars.toFixed(2)}`);
 
-          // 3) Update local positionSize / positionSizeUSD so final close uses the remaining
-          const remainingPositionSizeUSD = positionSizeUSD * (1 - fraction);
-          const remainingPositionSize = positionSize * (1 - fraction);
+          // instead of fraction = 0.5 and size*0.5:
+          const fullQty = positionSize;
+          const partialQty = roundQty(fullQty * 0.5);
+          const remainingQty = fullQty - partialQty;
 
-          positionSizeUSD = remainingPositionSizeUSD; // overwrite local vars
+          const remainingPositionSize = remainingQty;
+          const remainingPositionSizeUSD = positionSizeUSD * (remainingQty / fullQty);
+
+          positionSizeUSD = remainingPositionSizeUSD;
           positionSize = remainingPositionSize;
-
-          // 4) Update active trade in DB: new sizes + add closed profit to realizedProfit
-          console.log(`Updating Position Size = ${positionSize}, Position Size USD = ${positionSizeUSD} and Partial Profit Dollars = ${partialProfitDollars.toFixed(2)}`);
 
           await axios.post(
             `${process.env.backendURL}/bot/upd-partial`,
@@ -1641,10 +1755,9 @@ async function checkTPorSL(lastSignal) {
             { headers: { Authorization: `Bearer A.saboor786` } }
           );
 
-
-          // 5) Move stop to break-even for remaining position
-          currentSL = 0;       // 0% SL
-          softSL = entryPrice; // stop at entry
+          // Move stop to break-even for remaining position
+          currentSL = 0;
+          softSL = entryPrice;
 
           partialTPHit = true;
         } catch (e) {
@@ -1652,36 +1765,73 @@ async function checkTPorSL(lastSignal) {
         }
       }
 
-
-      // ===== continue with normal exit logic =====
+      // ===== continue with normal exit logic, but using high/low =====
 
       const slBroken = await isSLBroken(type);
 
-      const hitTP = (type === "BUY" && currentPrice >= tp) || (type === "SELL" && currentPrice <= tp);
-      const earlyExit = type === "BUY"
-        ? currentPrice <= softSL || slBroken
-        : currentPrice >= softSL || slBroken;
+      const hitTP = type === "BUY"
+        ? high >= tp
+        : low <= tp;
 
-      // Optional hard SL (exact 0.8% move)
+      const earlyExit = type === "BUY"
+        ? low <= softSL || slBroken
+        : high >= softSL || slBroken;
+
       const hardSL = type === "BUY"
-        ? currentPrice <= softSL
-        : currentPrice >= softSL;
+        ? low <= softSL
+        : high >= softSL;
 
       if (hitTP || earlyExit || hardSL) {
 
         if (real && LiveTrading) await closePositionByQty(type, positionSize);
 
         // Calculate profit %
+        let exitPrice;
+        if (hitTP) {
+          exitPrice = tp;
+        } else if (hardSL) {
+          exitPrice = softSL;
+        } else {
+          // earlyExit via EMA SL → you can use close, or low/high depending on direction
+          exitPrice = type === "BUY" ? low : high;
+        }
+
+
         const profitPercent =
           type === "BUY"
-            ? (currentPrice - entryPrice) / entryPrice
-            : (entryPrice - currentPrice) / entryPrice;
+            ? (exitPrice - entryPrice) / entryPrice
+            : (entryPrice - exitPrice) / entryPrice;
 
         const profitDollarsRemaining = profitPercent * positionSizeUSD - 0.45; // fee on final leg
+
+        console.log({
+          event: 'PARTIAL_HIT',
+          entryPrice,
+          partialTPPrice,
+          profitPercentPartial,
+          partialNotional,
+          partialProfitDollars: partialProfitDollars.toFixed(2),
+          fullQty,
+          partialQty,
+          remainingQty,
+          remainingPositionSize,
+          remainingPositionSizeUSD,
+        });
+
+        const isBreakEven = realizedProfit > 0 ? true : false;
+
+        if (isBreakEven) {
+          // 🔹 BE on remaining half: do NOT subtract the final fee here
+          profitDollarsRemaining = 0;
+        } else {
+          // Normal case: PnL on remaining notional minus one fee
+          profitDollarsRemaining = profitPercent * positionSizeUSD - 0.45;
+        }
 
         const totalProfitDollars = realizedProfit + profitDollarsRemaining;
 
         console.log(`💰 Total profit for trade (partials + final): $${totalProfitDollars.toFixed(2)}`);
+        console.log(`Trade Closed for ${type} at Price ${exitPrice}`);
 
         // Increment trade count
         tradeCount++;
@@ -1745,7 +1895,7 @@ async function checkTPorSL(lastSignal) {
           }); // WebUrl here
 
 
-        console.log(`Trade Closed for ${type} at Price ${currentPrice}`);
+        console.log(`Trade Closed for ${type} at Price ${exitPrice}`);
 
         lastTradeSignal = null;
       }

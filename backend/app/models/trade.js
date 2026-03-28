@@ -4,6 +4,9 @@ const mongoose = require('mongoose');
 const tradeSchema = new mongoose.Schema({
     entryTime: Date,
     entryPrice: Number,
+    tpPrice: Number,
+    partialTpPrice: Number,
+    slPrice: Number,
     realizedProfit: {
         type: Number,
         default: 0, // sum of partial profits so far

@@ -553,7 +553,7 @@ async function StopBot(req, res) {
 
 async function SaveTrade(req, res) {
 
-    const { signal, time, price, positionSize, positionSizeUSD, slope, leverage, candleTimestamp, atr, real } = req.body;
+    const { signal, time, price, positionSize, positionSizeUSD, slope, leverage, candleTimestamp, atr, real, slPrice, partialTpPrice, tpPrice } = req.body;
     activeTrade = {
         entryTime: time,
         entryPrice: price,
@@ -564,7 +564,10 @@ async function SaveTrade(req, res) {
         positionSize: positionSize,
         positionSizeUSD: positionSizeUSD,
         leverage: leverage,
-        candleTimestamp
+        candleTimestamp,
+        slPrice,
+        partialTpPrice,
+        tpPrice
     };
     try {
         const newTrade = new Trade(activeTrade);
@@ -782,4 +785,4 @@ async function updatePartial(req, res) {
     }
 }
 
-module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData,updatePartial }
+module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData, updatePartial }
