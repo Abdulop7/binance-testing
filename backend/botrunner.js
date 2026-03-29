@@ -1198,14 +1198,14 @@ async function placeOrder(signal, ema200) {
       const slFromCombo = bestCombo?.slPctDec;
 
       // Use TP1 as the only TP for now; fall back to 0.6% if not available
-      currentTP = typeof tpFromCombo === "number" ? tpFromCombo : atrMultToPctDec(atr, entry, TP_ATR_MULT);
+      currentTP = typeof tpFromCombo === "number" ? tpFromCombo : atrMultToPctDec(atr, entryPrice, TP_ATR_MULT);
 
       // For SL you can either:
       //  - use MAE‑based slFromCombo, or
       //  - keep your old ATR‑based SL
       // Here we try MAE‑based, fallback to ATR * 2.5 (converted to % of entry):
 
-      let defaultSlPct = atrMultToPctDec(atr, entry, SL_ATR_MULT); // convert old ATR-based abs SL into %
+      let defaultSlPct = atrMultToPctDec(atr, entryPrice, SL_ATR_MULT); // convert old ATR-based abs SL into %
       currentSL = typeof slFromCombo === "number" ? slFromCombo : defaultSlPct;
 
       console.log(
@@ -1269,7 +1269,7 @@ async function placeOrder(signal, ema200) {
       time: pakTime.toISOString(), // Saved in ISO format but in PKT
       price: entryPrice,
       atr: atr,
-      real: conditionCheck.allowed && LiveTrading ? true : false,
+      real: conditionCheck.allowed ? true : false,
       slope: Number(Math.abs(slope).toFixed(4)),
       positionSize: pairQuantity,
       positionSizeUSD: positionSizeUSD,
@@ -1802,7 +1802,7 @@ async function checkTPorSL(lastSignal) {
             ? (exitPrice - entryPrice) / entryPrice
             : (entryPrice - exitPrice) / entryPrice;
 
-        const profitDollarsRemaining = profitPercent * positionSizeUSD - 0.45; // fee on final leg
+        let profitDollarsRemaining = profitPercent * positionSizeUSD - 0.45; // fee on final leg
 
         console.log({
           event: 'PARTIAL_HIT',
