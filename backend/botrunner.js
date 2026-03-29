@@ -1742,6 +1742,20 @@ async function checkTPorSL(lastSignal) {
           const remainingPositionSize = remainingQty;
           const remainingPositionSizeUSD = positionSizeUSD * (remainingQty / fullQty);
 
+          console.log({
+            event: 'PARTIAL_HIT',
+            entryPrice,
+            partialTPPrice,
+            profitPercentPartial,
+            partialNotional,
+            partialProfitDollars: partialProfitDollars.toFixed(2),
+            fullQty,
+            partialQty,
+            remainingQty,
+            remainingPositionSize,
+            remainingPositionSizeUSD,
+          });
+
           positionSizeUSD = remainingPositionSizeUSD;
           positionSize = remainingPositionSize;
 
@@ -1803,20 +1817,6 @@ async function checkTPorSL(lastSignal) {
             : (entryPrice - exitPrice) / entryPrice;
 
         let profitDollarsRemaining = profitPercent * positionSizeUSD - 0.45; // fee on final leg
-
-        console.log({
-          event: 'PARTIAL_HIT',
-          entryPrice,
-          partialTPPrice,
-          profitPercentPartial,
-          partialNotional,
-          partialProfitDollars: partialProfitDollars.toFixed(2),
-          fullQty,
-          partialQty,
-          remainingQty,
-          remainingPositionSize,
-          remainingPositionSizeUSD,
-        });
 
         const isBreakEven = realizedProfit > 0 ? true : false;
 
