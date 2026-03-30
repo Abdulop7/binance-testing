@@ -1860,7 +1860,7 @@ async function checkTPorSL(lastSignal) {
         await updateLastTrade(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)
         SetLastDetails(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)
 
-        if (real) {  // upd in Real Bot 
+        if (real && LiveTrading) {  // upd in Real Bot 
           // Save trade history
           await axios.post(`${mainBotUrl}/bot/save-history`, { // WebUrl Here
             bot: symbol,
