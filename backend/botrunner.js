@@ -18,6 +18,7 @@ const QTY_PRECISION = 1;
 
 const partialLevelPct = 0.3; // Take Partial At 30% tp
 const TP_ATR_MULT = SL_ATR_MULT * RR_TARGET;
+let activeSlOrderId = null;
 const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
 const mainBotUrl = "https://binance-project-cp53cw.fly.dev"
 let intervalRef = null;
@@ -63,6 +64,23 @@ function roundPrice(p) {
 
 function roundQty(q) {
   return Number(q.toFixed(QTY_PRECISION));
+}
+
+async function futuresDeleteSigned(endpoint, params = {}) {
+  const timestamp = Date.now();
+  const query = new URLSearchParams({ ...params, timestamp }).toString();
+  const signature = signRequest(query, process.env.secretKey);
+  const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
+
+  const response = await axios.delete(url, {
+    headers: { 'X-MBX-APIKEY': process.env.apiKey },
+  });
+  return response.data;
+}
+
+async function cancelOrder(symbol, orderId) {
+  if (!orderId) return null;
+  return futuresDeleteSigned('/fapi/v1/order', { symbol, orderId });
 }
 
 // type: "BUY" (long) or "SELL" (short)
@@ -114,11 +132,33 @@ async function placeBracketOrders(type, entryPrice, quantity, tpPct, slPct, part
     reduceOnly: true,
   };
 
+  const slStopPrice = type === "BUY"
+    ? entryPrice * (1 - slPct)
+    : entryPrice * (1 + slPct);
+
+  const slOrder = {
+    symbol,
+    side,                 // opposite side
+    type: "STOP_MARKET",
+    stopPrice: roundPrice(slStopPrice),
+    closePosition: true,  // closes whatever remains (handles partials automatically)
+    workingType: "MARK_PRICE",
+  };
+
   console.log("📌 Placing partial TP:", partialOrder);
-  await futuresPostSigned("/fapi/v1/order", partialOrder);
+  const partialResp = await futuresPostSigned("/fapi/v1/order", partialOrder);
 
   console.log("📌 Placing final TP:", finalOrder);
-  await futuresPostSigned("/fapi/v1/order", finalOrder);
+  const finalResp = await futuresPostSigned("/fapi/v1/order", finalOrder);
+
+  console.log("🛑 Placing SL (STOP_MARKET):", slOrder);
+  const slResp = await futuresPostSigned("/fapi/v1/order", slOrder);
+
+  return {
+    partialTpOrderId: partialResp?.orderId,
+    finalTpOrderId: finalResp?.orderId,
+    slOrderId: slResp?.orderId,
+  };
 }
 
 
@@ -994,8 +1034,9 @@ function setTradeCandles(candles) {
   tradeCandleCloses = candles;
 }
 
-function updatePartial(value) {
-  partialTPHit = value
+function updatePartial(value,slOrder) {
+  partialTPHit = value;
+  activeSlOrderId = slOrder;
   console.log("Update Partial is Set to True!");
 }
 
@@ -1144,6 +1185,7 @@ async function placeOrder(signal, ema200) {
   try {
     partialTPHit = false;  // reset for new trade
     let leverage = 10
+    let ids = null;
 
     const { data } = await axios.get(`${process.env.backendURL}/bot/atr`,
       {
@@ -1229,7 +1271,7 @@ async function placeOrder(signal, ema200) {
         `TP=${(currentTP * 100).toFixed(3)}%, SL=${(currentSL * 100).toFixed(3)}%`
       );
 
-      await placeBracketOrders(
+      ids = await placeBracketOrders(
         signal,        // "BUY" or "SELL"
         entryPrice,
         pairQuantity,
@@ -1237,6 +1279,9 @@ async function placeOrder(signal, ema200) {
         currentSL,     // decimal
         0.5            // 50% partial
       );
+
+      activeSlOrderId = ids?.slOrderId;
+
     }
 
 
@@ -1278,6 +1323,11 @@ async function placeOrder(signal, ema200) {
       tpPrice: fullTpPrice,
       partialTpPrice,
       slPrice,
+
+      // NEW:
+      slOrderId: ids?.slOrderId ?? null,
+      tp1OrderId: ids?.partialTpOrderId ?? null,
+      tp2OrderId: ids?.finalTpOrderId ?? null,
     },
       {
         headers: {
@@ -1759,21 +1809,41 @@ async function checkTPorSL(lastSignal) {
           positionSizeUSD = remainingPositionSizeUSD;
           positionSize = remainingPositionSize;
 
+          // Move stop to break-even for remaining position
+          currentSL = 0;
+          softSL = entryPrice;
+
+          partialTPHit = true;
+
+          // 1) Cancel previous SL
+          await cancelOrder(symbol, activeSlOrderId);
+
+          // 2) Place new break-even SL at entry (STOP_MARKET)
+          const beSide = type === "BUY" ? "SELL" : "BUY";
+          const beOrder = {
+            symbol,
+            side: beSide,
+            type: "STOP_MARKET",
+            stopPrice: roundPrice(entryPrice),
+            closePosition: true,
+            workingType: "MARK_PRICE",
+          };
+
+          console.log("🔁 Moving SL to break-even:", beOrder);
+          const beResp = await futuresPostSigned("/fapi/v1/order", beOrder);
+          activeSlOrderId = beResp?.orderId;
+
           await axios.post(
             `${process.env.backendURL}/bot/upd-partial`,
             {
               positionSize: remainingPositionSize,
               positionSizeUSD: remainingPositionSizeUSD,
               closedProfit: partialProfitDollars.toFixed(2),
+              slOrderId : beResp?.orderId
             },
             { headers: { Authorization: `Bearer A.saboor786` } }
           );
 
-          // Move stop to break-even for remaining position
-          currentSL = 0;
-          softSL = entryPrice;
-
-          partialTPHit = true;
         } catch (e) {
           console.error("❌ Failed to update active trade after partial:", e.message);
         }
@@ -1854,8 +1924,8 @@ async function checkTPorSL(lastSignal) {
               Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
             }
           });
-        const savedTradeId = historyResponse.data.tradeId;
 
+        const savedTradeId = historyResponse.data.tradeId;
 
         await updateLastTrade(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)
         SetLastDetails(prevTradeType, prevTradeTime, prevTradePrice, savedTradeId)

@@ -18,7 +18,19 @@ const tradeSchema = new mongoose.Schema({
     positionSize: Number,
     positionSizeUSD: Number,
     leverage: Number,
-    candleTimestamp: Number
+    candleTimestamp: Number,
+    slOrderId: {
+        type: String,
+        default: null
+    },
+    tp1OrderId: {
+        type: String,
+        default: null
+    },
+    tp2OrderId: {
+        type: String,
+        default: null
+    },
 });
 
 module.exports = mongoose.model('Trade', tradeSchema);

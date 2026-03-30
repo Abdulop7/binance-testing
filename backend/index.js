@@ -103,15 +103,14 @@ mongoose.connect(process.env.DbUrl).then(() => {
 
             if (tradeRes) {
 
-              const { type } = tradeRes.data;
-              const { realizedProfit } = tradeRes.data;
+              const { type, realizedProfit, slOrderId } = tradeRes.data;
               let tpHit = realizedProfit > 0 ? true : false;
 
               setLastTradeSignal(type);
 
               console.log(`Last Trade Signal Set to : ${type}`);
 
-              if (tpHit) updatePartial(true);
+              if (tpHit) updatePartial(true, slOrderId);
               setTpSl(tpHit);
             }
           } catch (e) {

@@ -553,7 +553,7 @@ async function StopBot(req, res) {
 
 async function SaveTrade(req, res) {
 
-    const { signal, time, price, positionSize, positionSizeUSD, slope, leverage, candleTimestamp, atr, real, slPrice, partialTpPrice, tpPrice } = req.body;
+    const { signal, time, price, positionSize, positionSizeUSD, slope, leverage, candleTimestamp, atr, real, slPrice, partialTpPrice, tpPrice, slOrderId, tp1OrderId, tp2OrderId } = req.body;
     activeTrade = {
         entryTime: time,
         entryPrice: price,
@@ -567,7 +567,10 @@ async function SaveTrade(req, res) {
         candleTimestamp,
         slPrice,
         partialTpPrice,
-        tpPrice
+        tpPrice,
+        slOrderId,
+        tp1OrderId,
+        tp2OrderId
     };
     try {
         const newTrade = new Trade(activeTrade);
@@ -770,6 +773,7 @@ async function updatePartial(req, res) {
         trade.positionSize = positionSize;
         trade.positionSizeUSD = positionSizeUSD;
         trade.realizedProfit = (trade.realizedProfit) + (closedProfit);
+        trade.slOrderId = String(slOrderId);
 
         await trade.save();
 
@@ -778,6 +782,7 @@ async function updatePartial(req, res) {
             realizedProfit: trade.realizedProfit,
             positionSize: trade.positionSize,
             positionSizeUSD: trade.positionSizeUSD,
+            slOrderId: trade.slOrderId
         });
     } catch (err) {
         console.error('POST /bot/update-trade-partial error:', err.message);
