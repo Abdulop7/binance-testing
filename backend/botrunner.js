@@ -52,6 +52,16 @@ function atrMultToPctDec(atr, entryPrice, atrMult) {
   return (atr * atrMult) / entryPrice;
 }
 
+async function safeAsync(label, fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    const details = e?.response?.data || e?.message || e;
+    console.error(`⚠️ ${label} failed:`, details);
+    return null;
+  }
+}
+
 async function getPrice() {
 
   let Fprice = await getLatestPrice()
@@ -1034,7 +1044,7 @@ function setTradeCandles(candles) {
   tradeCandleCloses = candles;
 }
 
-function updatePartial(value,slOrder) {
+function updatePartial(value, slOrder) {
   partialTPHit = value;
   activeSlOrderId = slOrder;
   console.log("Update Partial is Set to True!");
@@ -1763,90 +1773,82 @@ async function checkTPorSL(lastSignal) {
         : low <= partialTPPrice;
 
       if (!partialTPHit && reachedPartial && real && LiveTrading) {
-        try {
-          console.log(
-            `🎯 Candle hit partial TP level (${partialTPPrice.toFixed(4)}). ` +
-            `Taking 50% off and moving stop to break-even.`
-          );
+        console.log(`🎯 Candle hit partial TP (${partialTPPrice.toFixed(4)}). Taking 50%...`);
 
-          const fraction = 0.5; // Position Size for Partial
+        // --- calc partial ---
+        const fraction = 0.5;
 
-          // 2) Compute closed profit for this partial
-          const profitPercentPartial =
-            type === "BUY"
-              ? (partialTPPrice - entryPrice) / entryPrice
-              : (entryPrice - partialTPPrice) / entryPrice;
+        const profitPercentPartial =
+          type === "BUY"
+            ? (partialTPPrice - entryPrice) / entryPrice
+            : (entryPrice - partialTPPrice) / entryPrice;
 
-          let partialNotional = positionSizeUSD * fraction;
-          let partialProfitDollars = profitPercentPartial * partialNotional;
+        const partialNotional = positionSizeUSD * fraction;
+        let partialProfitDollars = profitPercentPartial * partialNotional;
+        partialProfitDollars -= 0.45 * fraction;
 
-          partialProfitDollars -= 0.45 * fraction;
+        const fullQty = positionSize;
+        const partialQty = roundQty(fullQty * fraction);
+        const remainingQty = fullQty - partialQty;
 
-          console.log(`💰 Partial profit realized: $${partialProfitDollars.toFixed(2)}`);
+        const remainingPositionSize = remainingQty;
+        const remainingPositionSizeUSD = positionSizeUSD * (remainingQty / fullQty);
 
-          // instead of fraction = 0.5 and size*0.5:
-          const fullQty = positionSize;
-          const partialQty = roundQty(fullQty * 0.5);
-          const remainingQty = fullQty - partialQty;
+        // Update local size regardless (your “assume filled if touched” model)
+        positionSize = remainingPositionSize;
+        positionSizeUSD = remainingPositionSizeUSD;
 
-          const remainingPositionSize = remainingQty;
-          const remainingPositionSizeUSD = positionSizeUSD * (remainingQty / fullQty);
+        // Mark partial hit so you don't repeat
+        partialTPHit = true;
 
-          console.log({
-            event: 'PARTIAL_HIT',
-            entryPrice,
-            partialTPPrice,
-            profitPercentPartial,
-            partialNotional,
-            partialProfitDollars: partialProfitDollars.toFixed(2),
-            fullQty,
-            partialQty,
-            remainingQty,
-            remainingPositionSize,
-            remainingPositionSizeUSD,
-          });
+        // ---- MOVE SL TO BE (SAFE) ----
+        const oldSlOrderId = activeSlOrderId;
 
-          positionSizeUSD = remainingPositionSizeUSD;
-          positionSize = remainingPositionSize;
+        const beSide = type === "BUY" ? "SELL" : "BUY";
+        const beOrder = {
+          symbol,
+          side: beSide,
+          type: "STOP_MARKET",
+          stopPrice: roundPrice(entryPrice),
+          closePosition: true,
+          workingType: "MARK_PRICE",
+        };
 
-          // Move stop to break-even for remaining position
+        // 1) Place BE stop first
+        const beResp = await safeAsync("Place BE STOP_MARKET", () =>
+          futuresPostSigned("/fapi/v1/order", beOrder)
+        );
+
+        const newSlOrderId = beResp?.orderId ? String(beResp.orderId) : null;
+
+        // 2) Only if BE stop exists, cancel old stop + switch internal SL to BE
+        if (newSlOrderId) {
+          activeSlOrderId = newSlOrderId;
+
+          // now it's safe to cancel old SL
+          await safeAsync("Cancel old SL", () => cancelOrder(symbol, oldSlOrderId));
+
+          // now it's safe to move your internal SL model to break-even
           currentSL = 0;
           softSL = entryPrice;
+        } else {
+          // BE order failed -> keep old SL and keep currentSL unchanged
+          console.log("⚠️ BE SL not placed, keeping old SL active on Binance.");
+        }
 
-          partialTPHit = true;
-
-          // 1) Cancel previous SL
-          await cancelOrder(symbol, activeSlOrderId);
-
-          // 2) Place new break-even SL at entry (STOP_MARKET)
-          const beSide = type === "BUY" ? "SELL" : "BUY";
-          const beOrder = {
-            symbol,
-            side: beSide,
-            type: "STOP_MARKET",
-            stopPrice: roundPrice(entryPrice),
-            closePosition: true,
-            workingType: "MARK_PRICE",
-          };
-
-          console.log("🔁 Moving SL to break-even:", beOrder);
-          const beResp = await futuresPostSigned("/fapi/v1/order", beOrder);
-          activeSlOrderId = beResp?.orderId;
-
-          await axios.post(
+        // 3) DB update should never break the loop
+        await safeAsync("DB upd-partial", () =>
+          axios.post(
             `${process.env.backendURL}/bot/upd-partial`,
             {
               positionSize: remainingPositionSize,
               positionSizeUSD: remainingPositionSizeUSD,
               closedProfit: partialProfitDollars.toFixed(2),
-              slOrderId : beResp?.orderId
+              ...(newSlOrderId ? { slOrderId: newSlOrderId } : {}),
             },
             { headers: { Authorization: `Bearer A.saboor786` } }
-          );
-
-        } catch (e) {
-          console.error("❌ Failed to update active trade after partial:", e.message);
-        }
+          )
+        );
       }
 
       // ===== continue with normal exit logic, but using high/low =====
