@@ -35,6 +35,7 @@ let currentSL = 0
 let lastTradeSignal = null
 let emaHistory = []
 let subscriptions = [];
+let latestEmaPack = null; // { ema9, ema21, ema50, ema200, signal }
 
 // Example config (keep your own values)
 const OPTIMIZER_DAYS = 30;          // how many days of history to use
@@ -50,6 +51,158 @@ const MIN_WR_ATR = 50;        // minimum winrate% for a combo to be considered "
 function atrMultToPctDec(atr, entryPrice, atrMult) {
   // returns decimal percent (0.01 = 1%)
   return (atr * atrMult) / entryPrice;
+}
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+/**
+ * Returns the EMA spread multiplier (in ATR multiples) based on where ATR sits in the combo range.
+ * - atr near atrMin  -> require more separation  (e.g. 0.25 * ATR)
+ * - atr near atrMax  -> require less separation  (e.g. 0.10 * ATR)
+ */
+function dynamicEmaSpreadMultFromCombo(atr, combo, {
+  low = 0.20,   // stricter when ATR is low
+  high = 0.10,  // looser when ATR is high
+} = {}) {
+  if (!combo || !Number.isFinite(combo.atrMin) || !Number.isFinite(combo.atrMax)) {
+    return 0.15; // fallback
+  }
+
+  const span = combo.atrMax - combo.atrMin;
+  if (!Number.isFinite(span) || span <= 0) return 0.15;
+
+  const t = clamp((atr - combo.atrMin) / span, 0, 1); // 0..1 inside the range
+  return lerp(low, high, t);
+}
+
+function hasEnoughEMASpread({ ema9, ema21, ema50 }, atr, mult) {
+  if (![ema9, ema21, ema50, atr, mult].every(Number.isFinite)) return false;
+  const minAbs = mult * atr;
+  return (Math.abs(ema9 - ema21) > minAbs) && (Math.abs(ema21 - ema50) > minAbs);
+}
+
+async function futuresPlaceStopMarket(params) {
+  // try normal endpoint first
+  try {
+    return await futuresPostSigned("/fapi/v1/algoOrder", params);
+  } catch (e) {
+    const details = e?.response?.data || e?.message || e;
+    console.error(`Place Algo B.E Order Err:`, details);
+  }
+}
+
+async function CancelFuturesPlaceStopMarket(clientAlgoId) {
+  // try normal endpoint first
+  try {
+    return await futuresDeleteSigned("/fapi/v1/algoOrder", { clientAlgoId });
+  } catch (e) {
+    const details = e?.response?.data || e?.message || e;
+    console.error(`Place Algo B.E Order Err:`, details);
+  }
+}
+
+async function callFailoverExec(payload) {
+  if (!mainBotUrl) throw new Error("mainBotUrl not set");
+  const url = `${mainBotUrl}/bot/exec`;
+
+  const resp = await axios.post(url, payload, {
+    headers: { Authorization: `Bearer A.saboor786` },
+    timeout: 15_000,
+  });
+
+  return resp.data;
+}
+
+function isRateLimit1003(err) {
+  const code = err?.response?.data?.code;
+  const status = err?.response?.status;
+  return code === -1003 || status === 429;
+}
+
+function shouldFailover(err) {
+  // Failover on rate-limit, networking, timeouts, or 5xx
+  if (isRateLimit1003(err)) return true;
+
+  const status = err?.response?.status;
+  if (!status) return true;               // no HTTP response => network/DNS/etc
+  if (status >= 500) return true;         // Binance/server side
+  if (status === 408) return true;         // timeout
+
+  const code = err?.code;
+  const netCodes = new Set([
+    "ECONNABORTED",
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+  ]);
+  if (netCodes.has(code)) return true;
+
+  return false; // e.g. 400/401/403 param/auth errors => do NOT failover
+}
+
+async function futuresFailoverSigned(method, endpoint, params, originalErr) {
+  // IMPORTANT: do NOT send your secretKey/apiKey here
+  // The failover server should sign using its own stored credentials.
+  console.warn(
+    `↪️  Failover: ${method} ${endpoint}`,
+    originalErr?.response?.data || originalErr?.message || originalErr
+  );
+
+  const data = await callFailoverExec({
+    provider: "binance-futures",
+    signed: true,
+    method,
+    endpoint,
+    params,
+  });
+
+  if (data == null) throw new Error("Failover returned null/empty response");
+  return data;
+}
+
+async function futuresSignedRequestLocal(method, endpoint, params = {}) {
+  const timestamp = Date.now();
+  const query = new URLSearchParams({ ...params, timestamp }).toString();
+  const signature = signRequest(query, process.env.secretKey);
+  const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
+
+  const config = {
+    method,
+    url,
+    headers: { "X-MBX-APIKEY": process.env.apiKey },
+    // Binance signed futures endpoints usually take params in query-string; body is typically null
+    data: null,
+    timeout: 15_000,
+  };
+
+  const resp = await axios.request(config);
+  return resp.data;
+}
+
+async function futuresSignedRequest(method, endpoint, params = {}) {
+  try {
+    return await futuresSignedRequestLocal(method, endpoint, params);
+  } catch (err) {
+    if (!shouldFailover(err)) throw err; // keep real errors visible (bad params, auth, etc.)
+
+    // Try failover once
+    try {
+      return await futuresFailoverSigned(method, endpoint, params, err);
+    } catch (failErr) {
+      console.error(
+        `❌ Failover also failed for ${method} ${endpoint}:`,
+        failErr?.response?.data || failErr?.message || failErr
+      );
+      throw err; // throw original Binance error (most useful for debugging)
+    }
+  }
 }
 
 async function safeAsync(label, fn) {
@@ -76,22 +229,17 @@ function roundQty(q) {
   return Number(q.toFixed(QTY_PRECISION));
 }
 
-async function futuresDeleteSigned(endpoint, params = {}) {
-  const timestamp = Date.now();
-  const query = new URLSearchParams({ ...params, timestamp }).toString();
-  const signature = signRequest(query, process.env.secretKey);
-  const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
+// async function futuresDeleteSigned(endpoint, params = {}) {
+//   const timestamp = Date.now();
+//   const query = new URLSearchParams({ ...params, timestamp }).toString();
+//   const signature = signRequest(query, process.env.secretKey);
+//   const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
 
-  const response = await axios.delete(url, {
-    headers: { 'X-MBX-APIKEY': process.env.apiKey },
-  });
-  return response.data;
-}
-
-async function cancelOrder(symbol, orderId) {
-  if (!orderId) return null;
-  return futuresDeleteSigned('/fapi/v1/order', { symbol, orderId });
-}
+//   const response = await axios.delete(url, {
+//     headers: { 'X-MBX-APIKEY': process.env.apiKey },
+//   });
+//   return response.data;
+// }
 
 // type: "BUY" (long) or "SELL" (short)
 // entryPrice: executed entry
@@ -147,12 +295,14 @@ async function placeBracketOrders(type, entryPrice, quantity, tpPct, slPct, part
     : entryPrice * (1 + slPct);
 
   const slOrder = {
+    algoType: "CONDITIONAL",
     symbol,
-    side,                 // opposite side
+    side,
     type: "STOP_MARKET",
-    stopPrice: roundPrice(slStopPrice),
-    closePosition: true,  // closes whatever remains (handles partials automatically)
+    triggerprice: roundPrice(slStopPrice),
+    closePosition: true,
     workingType: "MARK_PRICE",
+    timestamp: new Date().toISOString()
   };
 
   console.log("📌 Placing partial TP:", partialOrder);
@@ -162,12 +312,12 @@ async function placeBracketOrders(type, entryPrice, quantity, tpPct, slPct, part
   const finalResp = await futuresPostSigned("/fapi/v1/order", finalOrder);
 
   console.log("🛑 Placing SL (STOP_MARKET):", slOrder);
-  const slResp = await futuresPostSigned("/fapi/v1/order", slOrder);
+  const slResp = await futuresPlaceStopMarket(slOrder);
 
   return {
     partialTpOrderId: partialResp?.orderId,
     finalTpOrderId: finalResp?.orderId,
-    slOrderId: slResp?.orderId,
+    slOrderId: slResp?.clientAlgoId,
   };
 }
 
@@ -709,7 +859,7 @@ async function getBestCombo() {
   return cachedBestCombo;
 }
 
-async function checkTradeConditions(atr, slope) {
+async function checkTradeConditions(atr, slope, emaPack) {
   const now = new Date();
 
   const lossCheck = await checkTwoConsecutiveLosses24h();
@@ -734,6 +884,36 @@ async function checkTradeConditions(atr, slope) {
     const reason = `ATR ${atr.toFixed(3)} outside optimized range [${bestCombo.atrMin.toFixed(3)} - ${bestCombo.atrMax.toFixed(3)}]`;
     console.log(`❌ Trade blocked: ${reason}`);
     return { allowed: false, reason, atr };
+  }
+
+  // --- EMA spread filter (dynamic) ---
+  if (emaPack?.ema9 != null && emaPack?.ema21 != null && emaPack?.ema50 != null) {
+    const mult = dynamicEmaSpreadMultFromCombo(atr, bestCombo, {
+      low: 0.20,  // tune
+      high: 0.10, // tune
+    });
+
+    const ok = hasEnoughEMASpread(
+      { ema9: emaPack.ema9, ema21: emaPack.ema21, ema50: emaPack.ema50 },
+      atr,
+      mult
+    );
+
+    if (!ok) {
+      const minAbs = mult * atr;
+      const d1 = Math.abs(emaPack.ema9 - emaPack.ema21);
+      const d2 = Math.abs(emaPack.ema21 - emaPack.ema50);
+
+      const reason =
+        `EMA spread too tight: need > ${minAbs.toFixed(6)} ` +
+        `(mult=${mult.toFixed(3)} of ATR=${atr.toFixed(6)}). ` +
+        `|9-21|=${d1.toFixed(6)} |21-50|=${d2.toFixed(6)}`;
+
+      console.log(`❌ Trade blocked: ${reason}`);
+      return { allowed: false, reason, atr, slope };
+    }
+  } else {
+    console.log("⚠️ EMA spread check skipped: emaPack missing");
   }
 
   // 2. NY session
@@ -1222,7 +1402,7 @@ async function placeOrder(signal, ema200) {
     console.log(`Atr is ${atr}`);
 
 
-    const conditionCheck = await checkTradeConditions(atr, Number(Math.abs(slope).toFixed(4)));
+    const conditionCheck = await checkTradeConditions(atr, Number(Math.abs(slope).toFixed(4)), latestEmaPack);
 
     let orderExecuted = false;
 
@@ -1474,7 +1654,8 @@ async function checkSignal() {
     let finalRest = false;
 
     let res = await calculateEmaSignal()
-    const newSignal = res.msg.signal;
+    latestEmaPack = res?.msg || null;
+    const newSignal = latestEmaPack?.signal;
     const ema200 = parseFloat(res.msg.ema200.toFixed(4));
     updateEMA(ema200);
 
@@ -1586,7 +1767,28 @@ async function startLoop() {
   // await checkTradeConditions(1.80, 0.0009);
   // await getBalance();
 
-  checkTwoConsecutiveLosses24h()
+  // const beOrder = {
+  //   algoType: "CONDITIONAL",
+  //   symbol,
+  //   side: "BUY",
+  //   type: "STOP_MARKET",
+  //   triggerprice: 615.50,
+  //   closePosition: true,
+  //   workingType: "MARK_PRICE",
+  //   timestamp: new Date().toISOString()
+  // };
+
+  // // 1) Place BE stop first
+  // const beResp = await safeAsync("Place BE STOP_MARKET", () =>
+  //   futuresPlaceStopMarket(beOrder)
+  // );
+
+  // const newSlOrderId = beResp?.orderId ? String(beResp.orderId) : null;
+
+  // console.log(newSlOrderId,beResp);
+
+  // await safeAsync("Cancel old SL", () => CancelFuturesPlaceStopMarket( "PPNxcUPIcg9qqOsq1H7vc4"));
+
   intervalRef = setInterval(checkSignal, 1000 * 60 * 3);
   checkSignal(); // immediate first run
   console.log("Bot loop started.");
@@ -1718,7 +1920,7 @@ async function checkTPorSL(lastSignal) {
           Authorization: `Bearer A.saboor786` // or VITE_ACCESS_TOKEN in frontend
         }
       }); // WebUrl here 
-    let { entryPrice, type, positionSize, positionSizeUSD, leverage, atr, slope, candleTimestamp, real, realizedProfit } = tradeRes.data;
+    let { entryPrice, type, positionSize, positionSizeUSD, leverage, atr, slope, candleTimestamp, real, realizedProfit, tpPrice, partialTpPrice, slPrice } = tradeRes.data;
 
     realizedProfit = Number(realizedProfit) || 0;
 
@@ -1785,7 +1987,10 @@ async function checkTPorSL(lastSignal) {
 
         const partialNotional = positionSizeUSD * fraction;
         let partialProfitDollars = profitPercentPartial * partialNotional;
-        partialProfitDollars -= 0.45 * fraction;
+
+        realizedProfit = partialProfitDollars.toFixed(2)
+
+        console.log(`💰 Partial profit realized: $${partialProfitDollars.toFixed(2)}`);
 
         const fullQty = positionSize;
         const partialQty = roundQty(fullQty * fraction);
@@ -1806,35 +2011,29 @@ async function checkTPorSL(lastSignal) {
 
         const beSide = type === "BUY" ? "SELL" : "BUY";
         const beOrder = {
+          algoType: "CONDITIONAL",
           symbol,
           side: beSide,
           type: "STOP_MARKET",
-          stopPrice: roundPrice(entryPrice),
+          triggerprice: roundPrice(entryPrice),
           closePosition: true,
           workingType: "MARK_PRICE",
+          timestamp: new Date().toISOString()
         };
 
-        // 1) Place BE stop first
+        await safeAsync("Cancel old SL", () => CancelFuturesPlaceStopMarket(oldSlOrderId));
+
         const beResp = await safeAsync("Place BE STOP_MARKET", () =>
-          futuresPostSigned("/fapi/v1/order", beOrder)
+          futuresPlaceStopMarket(beOrder)
         );
 
-        const newSlOrderId = beResp?.orderId ? String(beResp.orderId) : null;
+        const newSlOrderId = beResp?.clientAlgoId ? String(beResp.clientAlgoId) : null;
 
-        // 2) Only if BE stop exists, cancel old stop + switch internal SL to BE
-        if (newSlOrderId) {
-          activeSlOrderId = newSlOrderId;
+        activeSlOrderId = newSlOrderId;
 
-          // now it's safe to cancel old SL
-          await safeAsync("Cancel old SL", () => cancelOrder(symbol, oldSlOrderId));
+        currentSL = 0;
+        softSL = entryPrice;
 
-          // now it's safe to move your internal SL model to break-even
-          currentSL = 0;
-          softSL = entryPrice;
-        } else {
-          // BE order failed -> keep old SL and keep currentSL unchanged
-          console.log("⚠️ BE SL not placed, keeping old SL active on Binance.");
-        }
 
         // 3) DB update should never break the loop
         await safeAsync("DB upd-partial", () =>
@@ -1868,8 +2067,6 @@ async function checkTPorSL(lastSignal) {
         : high >= softSL;
 
       if (hitTP || earlyExit || hardSL) {
-
-        if (real && LiveTrading) await closePositionByQty(type, positionSize);
 
         // Calculate profit %
         let exitPrice;
@@ -1920,6 +2117,13 @@ async function checkTPorSL(lastSignal) {
           positionSize: positionSize,
           positionSizeUSD: positionSizeUSD,
           leverage: leverage,
+          tpPrice: tpPrice ?? null,
+          partialTpPrice: partialTpPrice ?? null,
+          slPrice: slPrice ?? null,
+
+          // (optional but very useful)
+          exitPrice: exitPrice,
+          partialTPHit: partialTPHit,
         },
           {
             headers: {
@@ -2054,20 +2258,32 @@ async function setLeverage(symbol, leverage) {
   return await futuresPostSigned('/fapi/v1/leverage', { symbol, leverage });
 }
 
+// async function futuresPostSigned(endpoint, params = {}) {
+
+//   const timestamp = Date.now();
+//   const query = new URLSearchParams({ ...params, timestamp }).toString();
+//   const signature = signRequest(query, process.env.secretKey);
+//   const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
+
+//   const response = await axios.post(url, null, {
+//     headers: {
+//       'X-MBX-APIKEY': process.env.apiKey,
+//     },
+//   });
+//   return response.data;
+
+// }
+
+async function futuresGetSigned(endpoint, params = {}) {
+  return futuresSignedRequest("GET", endpoint, params);
+}
+
 async function futuresPostSigned(endpoint, params = {}) {
+  return futuresSignedRequest("POST", endpoint, params);
+}
 
-  const timestamp = Date.now();
-  const query = new URLSearchParams({ ...params, timestamp }).toString();
-  const signature = signRequest(query, process.env.secretKey);
-  const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
-
-  const response = await axios.post(url, null, {
-    headers: {
-      'X-MBX-APIKEY': process.env.apiKey,
-    },
-  });
-  return response.data;
-
+async function futuresDeleteSigned(endpoint, params = {}) {
+  return futuresSignedRequest("DELETE", endpoint, params);
 }
 
 function signRequest(queryString, secret) {
@@ -2085,23 +2301,23 @@ async function placeFuturesOrder(symbol, side, quantity) {
   });
 }
 
-async function futuresGetSigned(endpoint, params = {}) {
+// async function futuresGetSigned(endpoint, params = {}) {
 
-  const timestamp = Date.now();
-  const query = new URLSearchParams({ ...params, timestamp }).toString();
-  const signature = signRequest(query, process.env.secretKey);
-  const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
+//   const timestamp = Date.now();
+//   const query = new URLSearchParams({ ...params, timestamp }).toString();
+//   const signature = signRequest(query, process.env.secretKey);
+//   const url = `${BASE_FAPI_URL}${endpoint}?${query}&signature=${signature}`;
 
 
 
-  const response = await axios.get(url, {
-    headers: {
-      'X-MBX-APIKEY': process.env.apiKey,
-    },
-  });
+//   const response = await axios.get(url, {
+//     headers: {
+//       'X-MBX-APIKEY': process.env.apiKey,
+//     },
+//   });
 
-  return response.data;
-}
+//   return response.data;
+// }
 
 async function getFuturesBalance(req, res) {
   const balance = await futuresGetSigned('/fapi/v2/balance');
@@ -2198,5 +2414,8 @@ module.exports = {
   setTradeCandles,
   getCandlesFromDb,
   clearCandlesDataInDb,
-  updatePartial
+  updatePartial,
+  futuresGetSigned,
+  futuresPostSigned,
+  futuresDeleteSigned
 };

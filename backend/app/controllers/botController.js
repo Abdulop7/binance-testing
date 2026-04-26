@@ -11,6 +11,16 @@ const CandlesData = require("../models/candlesData");
 const Trade = require("../models/trade");
 const { getLatestCandle } = require("../../binanceWebSocket");
 
+const ALLOWED_ENDPOINTS = new Set([
+    "/fapi/v2/account",        // getBalance
+    "/fapi/v2/balance",        // getBalance
+    "/fapi/v1/order",          // placeFuturesOrder
+    "/fapi/v1/leverage",       // setLeverage
+    "/fapi/v1/marginType",     // setMarginType
+    "/fapi/v1/algoOrder",      // futuresPlaceStopMarket
+]);
+
+const ALLOWED_METHODS = new Set(["GET", "POST", "DELETE"]);
 let activeTrade = null;
 
 async function getAtr(req, res) {
@@ -625,7 +635,7 @@ async function ClearTrade(req, res) {
 
 async function SaveHistory(req, res) {
 
-    const { tradeNumber, profit, time, type, positionSize, atr, positionSizeUSD, slope, leverage, entryPrice, bot } = req.body;
+    const { tradeNumber, profit, time, type, positionSize, atr, positionSizeUSD, slope, leverage, entryPrice, bot, tpPrice, partialTpPrice, slPrice, exitPrice, partialTPHit } = req.body;
 
     const history = new TradeHistory({
         bot,
@@ -638,7 +648,12 @@ async function SaveHistory(req, res) {
         type: type,
         positionSize: positionSize,
         positionSizeUSD: positionSizeUSD,
-        leverage: leverage
+        leverage: leverage, 
+        tpPrice, 
+        partialTpPrice, 
+        slPrice, 
+        exitPrice, 
+        partialTPHit
     });
     await history.save();
 
@@ -762,7 +777,7 @@ async function subscribe(req, res) {
 async function updatePartial(req, res) {
     try {
         const symbol = process.env.symbol;
-        const { positionSize, positionSizeUSD, closedProfit } = req.body;
+        const { positionSize, positionSizeUSD, closedProfit, slOrderId } = req.body;
 
         const trade = await Trade.findOne().sort({ entryTime: -1 });
 
@@ -790,4 +805,69 @@ async function updatePartial(req, res) {
     }
 }
 
-module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData, updatePartial }
+async function exec(req, res) {
+    try {
+        const body = req.body || {};
+        const {
+            provider,      // "binance-futures"
+            signed,        // true
+            method,        // "GET" | "POST" | "DELETE"
+            endpoint,      // "/fapi/v1/order"
+            params = {},   // object
+        } = body;
+
+        // --- Validate payload ---
+        if (provider !== "binance-futures") {
+            return res.status(400).json({ ok: false, error: "Unsupported provider" });
+        }
+
+        const m = String(method || "").toUpperCase();
+        if (!ALLOWED_METHODS.has(m)) {
+            return res.status(400).json({ ok: false, error: "Method not allowed" });
+        }
+
+        if (!endpoint || !endpoint.startsWith("/fapi/")) {
+            return res.status(400).json({ ok: false, error: "Bad endpoint" });
+        }
+
+        if (!ALLOWED_ENDPOINTS.has(endpoint)) {
+            return res.status(403).json({ ok: false, error: "Endpoint not allowed" });
+        }
+
+        if (signed !== true) {
+            return res.status(400).json({ ok: false, error: "Only signed=true supported" });
+        }
+
+        // --- Route to your existing helpers ---
+        let result;
+        switch (m) {
+            case "GET":
+                result = await botrunner.futuresGetSigned(endpoint, params);
+                break;
+            case "POST":
+                result = await botrunner.futuresPostSigned(endpoint, params);
+                break;
+            case "DELETE":
+                result = await botrunner.futuresDeleteSigned(endpoint, params);
+                break;
+            default:
+                return res.status(400).json({ ok: false, error: "Method not supported" });
+        }
+
+        // --- Success: return Binance response.data ---
+        return res.json(result);
+
+    } catch (err) {
+        // --- Forward Binance errors exactly as they come ---
+        const status = err?.response?.status || 500;
+        const binanceError = err?.response?.data || { msg: err.message };
+
+        return res.status(status).json({
+            ok: false,
+            status,
+            binance: binanceError,
+        });
+    }
+}
+
+module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData, updatePartial, exec }
