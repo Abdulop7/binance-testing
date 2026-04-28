@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for binance-testing-bkupkg on 2026-01-20T20:04:34Z
+# fly.toml app configuration file generated for binance-testing on 2026-01-20T20:04:34Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'binance-testing-bkupkg'
-primary_region = 'syd'
+app = "binance-testing"
+primary_region = "ams"
 
 [build]
 
