@@ -18,7 +18,7 @@ const maxCandles = 1000;
 function startPriceSocket(symbol) {
   if (priceWS) priceWS.terminate();
 
-  priceWS = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@ticker`);
+  priceWS = new WebSocket(`wss://fstream.binance.com/market/ws/${symbol}@aggTrade`);
 
   priceWS.on("open", () => {
     console.log(`📡 Price WebSocket connected for ${symbol.toUpperCase()}`);
@@ -27,7 +27,7 @@ function startPriceSocket(symbol) {
   priceWS.on("message", (data) => {
     lastPricePing = Date.now();
     const parsed = JSON.parse(data);
-    latestPrice = Math.round(parseFloat(parsed.c) * 10000) / 10000;
+    latestPrice = Math.round(parseFloat(parsed.p) * 10000) / 10000;
   });
 
   priceWS.on("error", (err) => {
@@ -45,7 +45,7 @@ function startPriceSocket(symbol) {
 function startCandleSocket(symbol) {
   if (candleWS) candleWS.terminate();
 
-  candleWS = new WebSocket(`wss://fstream.binance.com/ws/${symbol}@kline_3m`);
+  candleWS = new WebSocket(`wss://fstream.binance.com/market/ws/${symbol}@kline_3m`);
 
   candleWS.on("open", () => {
     console.log(`🕒 Candle WebSocket connected for ${symbol.toUpperCase()}`);
