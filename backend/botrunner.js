@@ -5,6 +5,7 @@ const { EMA } = require("technicalindicators");
 const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
 
 let LiveTrading = false
+let BinanceTrading = false
 let symbol = process.env.symbol;
 let currentBalance = 1000
 const SL_ATR_MULT = 1.5;
@@ -17,6 +18,8 @@ const QTY_PRECISION = 1;
 //---------------------------
 
 const partialLevelPct = 0.3; // Take Partial At 30% tp
+const PARTIAL_LOCK_PCT_OF_TP = 0.05; // 5% of the full TP distance after Partial Hit
+let partialLockedSLPrice = null;
 const TP_ATR_MULT = SL_ATR_MULT * RR_TARGET;
 let activeSlOrderId = null;
 const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
@@ -36,6 +39,7 @@ let lastTradeSignal = null
 let emaHistory = []
 let subscriptions = [];
 let latestEmaPack = null; // { ema9, ema21, ema50, ema200, signal }
+const SL_MATCH_PARTIAL = true; // <--- turn on
 
 // Example config (keep your own values)
 const OPTIMIZER_DAYS = 30;          // how many days of history to use
@@ -59,6 +63,10 @@ function clamp(n, min, max) {
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
+}
+
+function partialPctFromTp(tpPctDec) {
+  return tpPctDec * partialLevelPct; // decimal
 }
 
 /**
@@ -1374,6 +1382,7 @@ async function getLastTradeFromDB() {
 async function placeOrder(signal, ema200) {
   try {
     partialTPHit = false;  // reset for new trade
+    partialLockedSLPrice = null
     let leverage = 10
     let ids = null;
 
@@ -1410,7 +1419,7 @@ async function placeOrder(signal, ema200) {
 
       console.log(`🚫 Order NOT placed for ${signal}: ${conditionCheck.reason}`);
     }
-    else if (conditionCheck.allowed == true && LiveTrading) {
+    else if (conditionCheck.allowed == true && LiveTrading && BinanceTrading) {
 
       try {
         await getBalance();
@@ -1439,6 +1448,14 @@ async function placeOrder(signal, ema200) {
 
       let defaultSlPct = atrMultToPctDec(atr, entryPrice, SL_ATR_MULT); // convert old ATR-based abs SL into %
       currentSL = typeof slFromCombo === "number" ? slFromCombo : defaultSlPct;
+
+      if (SL_MATCH_PARTIAL) {
+        const partialPctDec = partialPctFromTp(currentTP);
+        currentSL = partialPctDec;
+        console.log(
+          `🔁 SL matched to partial distance: partial=${(partialPctDec * 100).toFixed(3)}% => SL=${(currentSL * 100).toFixed(3)}%`
+        );
+      }
 
       console.log(
         `Using TP=${(currentTP * 100).toFixed(3)}% and SL=${(currentSL * 100).toFixed(3)}% from best combo`
@@ -1958,6 +1975,19 @@ async function checkTPorSL(lastSignal) {
         ? entryPrice * (1 - currentSL)
         : entryPrice * (1 + currentSL);
 
+      if (partialTPHit) {
+        const lockProfitPct = currentTP * PARTIAL_LOCK_PCT_OF_TP; // 5% of TP distance
+
+        // signed SL value so it moves into profit direction
+        currentSL = -lockProfitPct;
+
+        partialLockedSLPrice = type === "BUY"
+          ? entryPrice * (1 - currentSL)
+          : entryPrice * (1 + currentSL);
+
+        softSL = partialLockedSLPrice;
+      }
+
       console.log(
         `Entry=${entryPrice}, TP=${tp.toFixed(4)}, SL=${softSL.toFixed(4)}, ` +
         `high=${high}, low=${low}, TP%=${(currentTP * 100).toFixed(3)}%, SL%=${(currentSL * 100).toFixed(3)}%`
@@ -2005,34 +2035,47 @@ async function checkTPorSL(lastSignal) {
 
         // Mark partial hit so you don't repeat
         partialTPHit = true;
+        let newSlOrderId = null;
+        
+        const lockProfitPct = currentTP * PARTIAL_LOCK_PCT_OF_TP; // 5% of TP distance
 
-        // ---- MOVE SL TO BE (SAFE) ----
-        const oldSlOrderId = activeSlOrderId;
+        // signed SL value so it moves into profit direction
+        currentSL = -lockProfitPct;
 
-        const beSide = type === "BUY" ? "SELL" : "BUY";
-        const beOrder = {
-          algoType: "CONDITIONAL",
-          symbol,
-          side: beSide,
-          type: "STOP_MARKET",
-          triggerprice: roundPrice(entryPrice),
-          closePosition: true,
-          workingType: "MARK_PRICE",
-          timestamp: new Date().toISOString()
-        };
+        partialLockedSLPrice = type === "BUY"
+          ? entryPrice * (1 - currentSL)
+          : entryPrice * (1 + currentSL);
 
-        await safeAsync("Cancel old SL", () => CancelFuturesPlaceStopMarket(oldSlOrderId));
+        softSL = partialLockedSLPrice;
 
-        const beResp = await safeAsync("Place BE STOP_MARKET", () =>
-          futuresPlaceStopMarket(beOrder)
-        );
 
-        const newSlOrderId = beResp?.clientAlgoId ? String(beResp.clientAlgoId) : null;
+        if (BinanceTrading) {
 
-        activeSlOrderId = newSlOrderId;
+          // ---- MOVE SL TO BE (SAFE) ----
+          const oldSlOrderId = activeSlOrderId;
 
-        currentSL = 0;
-        softSL = entryPrice;
+          const beSide = type === "BUY" ? "SELL" : "BUY";
+          const beOrder = {
+            algoType: "CONDITIONAL",
+            symbol,
+            side: beSide,
+            type: "STOP_MARKET",
+            triggerprice: roundPrice(partialLockedSLPrice),
+            closePosition: true,
+            workingType: "MARK_PRICE",
+            timestamp: new Date().toISOString()
+          };
+
+          await safeAsync("Cancel old SL", () => CancelFuturesPlaceStopMarket(oldSlOrderId));
+
+          const beResp = await safeAsync("Place BE STOP_MARKET", () =>
+            futuresPlaceStopMarket(beOrder)
+          );
+
+          newSlOrderId = beResp?.clientAlgoId ? String(beResp.clientAlgoId) : null;
+          activeSlOrderId = newSlOrderId;
+
+        }
 
 
         // 3) DB update should never break the loop
