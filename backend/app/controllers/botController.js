@@ -5,6 +5,7 @@ const BotStatus = require('../models/botStatus')
 const LastTrade = require('../models/lastTrade')
 const TradeCandles = require('../models/tradeCandles')
 const TradeHistory = require("../models/tradeHistory");
+const RealHistory = require("../models/realHistory");
 const { ATR } = require('technicalindicators');
 const NewsEvent = require("../models/newsEvent");
 const CandlesData = require("../models/candlesData");
@@ -648,11 +649,45 @@ async function SaveHistory(req, res) {
         type: type,
         positionSize: positionSize,
         positionSizeUSD: positionSizeUSD,
-        leverage: leverage, 
-        tpPrice, 
-        partialTpPrice, 
-        slPrice, 
-        exitPrice, 
+        leverage: leverage,
+        tpPrice,
+        partialTpPrice,
+        slPrice,
+        exitPrice,
+        partialTPHit
+    });
+    await history.save();
+
+    // Get the inserted document's _id
+    const tradeId = history._id;
+
+    console.log(`Trade Id sending Via Save History is = ${tradeId}`);
+
+
+    res.status(200).json({ success: true, message: "Trade saved", tradeId: tradeId.toString() });
+
+}
+
+async function saveRealHistory(req, res) {
+
+    const { tradeNumber, profit, time, type, positionSize, atr, positionSizeUSD, slope, leverage, entryPrice, bot, tpPrice, partialTpPrice, slPrice, exitPrice, partialTPHit } = req.body;
+
+    const history = new RealHistory({
+        bot,
+        tradeNumber,
+        entryPrice,
+        atr,
+        slope,
+        profit,
+        time: time || new Date(),
+        type: type,
+        positionSize: positionSize,
+        positionSizeUSD: positionSizeUSD,
+        leverage: leverage,
+        tpPrice,
+        partialTpPrice,
+        slPrice,
+        exitPrice,
         partialTPHit
     });
     await history.save();
@@ -715,6 +750,12 @@ async function UpdateTradeHistoryMFE(req, res) {
 async function AllTrades(req, res) {
 
     let trades = await TradeHistory.find().sort({ createdAt: -1 })
+    res.json(trades)
+}
+
+async function AllRealTrades(req, res) {
+
+    let trades = await RealHistory.find().sort({ createdAt: -1 })
     res.json(trades)
 }
 
@@ -870,4 +911,4 @@ async function exec(req, res) {
     }
 }
 
-module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData, updatePartial, exec }
+module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData, updatePartial, exec,AllRealTrades, saveRealHistorys }
