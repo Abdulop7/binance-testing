@@ -4,7 +4,7 @@ require('dotenv').config();
 const { EMA } = require("technicalindicators");
 const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
 
-let LiveTrading = false
+let LiveTrading = true
 let BinanceTrading = false
 let symbol = process.env.symbol;
 let currentBalance = 1000
@@ -23,7 +23,7 @@ let partialLockedSLPrice = null;
 const TP_ATR_MULT = SL_ATR_MULT * RR_TARGET;
 let activeSlOrderId = null;
 const BASE_FAPI_URL = 'https://fapi.binance.com'; // Futures mainnet
-const mainBotUrl = "https://binance-project.fly.dev"
+const mainBotUrl = "https://binance-testing.fly.dev"
 let intervalRef = null;
 let lastSignal = null; // <-- Declare here to keep it across calls
 let tradeCount = 0; // Global scope (top of the script)
@@ -1036,7 +1036,7 @@ async function calculateMFEandMAE(entryPrice, entryTimestamp, type) {
 async function checkTwoConsecutiveLosses24h() {
   try {
     const res = await axios.get(
-      `${mainBotUrl}/bot/all-trades`,
+      `${mainBotUrl}/bot/real-history`,
       { headers: { Authorization: `Bearer A.saboor786` } }
     );
 
@@ -2181,7 +2181,7 @@ async function checkTPorSL(lastSignal) {
 
         if (real && LiveTrading) {  // upd in Real Bot 
           // Save trade history
-          await axios.post(`${mainBotUrl}/bot/save-history`, { // WebUrl Here
+          await axios.post(`${mainBotUrl}/bot/real-history`, { // WebUrl Here
             bot: symbol,
             profit: totalProfitDollars.toFixed(2),
             entryPrice: entryPrice,

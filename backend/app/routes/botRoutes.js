@@ -1,5 +1,5 @@
 const express = require("express");
-const {  doBacktest, getEma, morecandleFetch, ViewPrice, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory,AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, updLastTrade, getLastTrade, UpdateTradeHistoryMFE, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData, updatePartial, saveRealHistory, AllRealTrades } = require("../controllers/botController");
+const {  doBacktest, getEma, morecandleFetch, ViewPrice, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory,AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, updLastTrade, getLastTrade, UpdateTradeHistoryMFE, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData, updatePartial, saveRealHistory, AllRealTrades, exec } = require("../controllers/botController");
 const { getFuturesBalance } = require("../../botrunner");
 
 let BotRouter = express.Router()
@@ -27,6 +27,8 @@ BotRouter.post("/start-bot",StartBot)
 BotRouter.post("/stop-bot",StopBot)
 
 BotRouter.post("/save-trade", SaveTrade)
+
+BotRouter.post("/exec", exec)
 
 BotRouter.post("/upd-partial", updatePartial)
 
