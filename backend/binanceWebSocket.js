@@ -214,7 +214,7 @@ setInterval(() => {
 
   if (now - lastPricePing > 20000) {
 
-    whatsappAlert();
+    // whatsappAlert();
 
     console.log("⚠️ Price socket frozen → restarting...");
     startPriceSocket();
@@ -222,7 +222,7 @@ setInterval(() => {
 
   if (now - lastCandlePing > 20000) {
 
-    whatsappAlert()
+    // whatsappAlert()
 
     console.log("⚠️ Candle socket frozen → restarting...");
     startCandleSocket();
