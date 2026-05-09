@@ -1,6 +1,19 @@
 const mongoose = require("mongoose");
 let Schema = mongoose.Schema;
 
+const candleSchema = new Schema(
+  {
+    openTime: { type: Number, required: true },   // ms
+    open:     { type: Number, required: true },
+    high:     { type: Number, required: true },
+    low:      { type: Number, required: true },
+    close:    { type: Number, required: true },
+    volume:   { type: Number, required: true },
+    closeTime:{ type: Number, required: true },   // ms
+  },
+  { _id: false }
+);
+
 let TradeHistorySchema = new Schema({
     tradeNumber: Number,
     entryPrice: Number,
@@ -21,6 +34,10 @@ let TradeHistorySchema = new Schema({
     tpPrice: Number,
     partialTpPrice: Number,
     slPrice: Number,
+    candles: {
+        type: [candleSchema],
+        default: [],
+    },
 })
 
 module.exports = mongoose.model("TradeHistory", TradeHistorySchema)

@@ -376,51 +376,43 @@ async function delCandlesData(req, res) {
 }
 
 async function addTradeCandleClose(req, res) {
-    try {
-        const { closePrice } = req.body;
+  try {
+    const { candle } = req.body;
 
-        // Validate input
-        if (closePrice === undefined || closePrice === null) {
-            return res.status(400).json({
-                success: false,
-                error: "closePrice is required"
-            });
-        }
-
-        // Validate it's a number
-        const price = parseFloat(closePrice);
-        if (isNaN(price)) {
-            return res.status(400).json({
-                success: false,
-                error: "closePrice must be a valid number"
-            });
-        }
-
-        // Find existing document or create new one, then push the candle close
-        let candles = await TradeCandles.findOne({});
-
-        if (!candles) {
-            // Create new document with first candle
-            candles = new TradeCandles({ candleCloses: [price] });
-        } else {
-            // Push to existing array
-            candles.candleCloses.push(price);
-        }
-
-        await candles.save();
-
-        res.status(200).json({
-            success: true,
-            message: "Candle close added",
-            addedPrice: price,
-            totalCandles: candles.candleCloses.length
-        });
-    } catch (err) {
-        console.error("Add candle close error:", err.message);
-        res.status(500).json({ success: false, error: err.message });
+    if (
+      !candle ||
+      typeof candle.openTime !== "number" ||
+      typeof candle.closeTime !== "number"
+    ) {
+      return res.status(400).json({ success: false, msg: "Invalid candle" });
     }
-}
 
+    // normalize + force numbers
+    const normalized = {
+      openTime: Number(candle.openTime),
+      open: Number(candle.open),
+      high: Number(candle.high),
+      low: Number(candle.low),
+      close: Number(candle.close),
+      volume: Number(candle.volume),
+      closeTime: Number(candle.closeTime),
+    };
+
+    let doc = await TradeCandles.findOne({});
+    if (!doc) doc = new TradeCandles({ candleCloses: [] });
+
+    doc.candleCloses.push(normalized);
+    await doc.save();
+
+    return res.json({
+      success: true,
+      totalCandles: doc.candleCloses.length,
+    });
+  } catch (err) {
+    console.error("Add candle close error:", err.message);
+    return res.status(500).json({ success: false, msg: err.message });
+  }
+}
 async function clearAllTradeCandles(req, res) {
     try {
         let candles = await TradeCandles.findOne({});
@@ -704,7 +696,7 @@ async function saveRealHistory(req, res) {
 
 async function UpdateTradeHistoryMFE(req, res) {
     try {
-        const { tradeId, mfe, mae, mfePercent, maePercent } = req.body;
+        const { tradeId, mfe, mae, mfePercent, maePercent, candlesData } = req.body;
 
         // ✅ Find and update the trade by ObjectId
         const updatedTrade = await TradeHistory.findByIdAndUpdate(
@@ -714,7 +706,8 @@ async function UpdateTradeHistoryMFE(req, res) {
                     mfe: mfe ?? null,
                     mae: mae ?? null,
                     mfePercent: mfePercent ?? null,
-                    maePercent: maePercent ?? null
+                    maePercent: maePercent ?? null,
+                    candles: candlesData
                 }
             },
             {
@@ -911,4 +904,4 @@ async function exec(req, res) {
     }
 }
 
-module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData, updatePartial, exec,AllRealTrades, saveRealHistory }
+module.exports = { UpdateTradeHistoryMFE, getLastTrade, updLastTrade, doBacktest, ViewPrice, getEma, morecandleFetch, getBotStatus, updBotStatus, StartBot, StopBot, SaveTrade, GetActiveTrades, ClearTrade, SaveHistory, AllTrades, getAtr, TradeNumber, addNewsEvent, checkNewsBlock, showNews, subscribe, getTradeCandles, addTradeCandleClose, clearAllTradeCandles, getCandlesData, addCandlesData, delCandlesData, updatePartial, exec, AllRealTrades, saveRealHistory }

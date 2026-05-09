@@ -993,14 +993,24 @@ async function calculateMFEandMAE(entryPrice, entryTimestamp, type) {
   // MAE = Maximum Adverse Excursion (using candle CLOSE)
 
   try {
-    if (tradeCandleCloses.length === 0 || prevTradePrice === null) {
+    if (!Array.isArray(tradeCandleCloses) || tradeCandleCloses.length === 0) {
       console.log("⚠️ No candle data to calculate MFE/MAE");
       return null;
     }
 
+    // Extract numeric closes from candle objects
+    const closes = tradeCandleCloses
+      .map(c => Number(c?.close))
+      .filter(Number.isFinite);
+
+    if (closes.length === 0) {
+      console.log("⚠️ Candle array exists but no valid close values");
+      return null;
+    }
+
     // Find highest and lowest close prices
-    const maxClose = Math.max(...tradeCandleCloses);
-    const minClose = Math.min(...tradeCandleCloses);
+    const maxClose = Math.max(...closes);
+    const minClose = Math.min(...closes);
 
     let mfe = 0, mae = 0;
 
@@ -1230,6 +1240,8 @@ async function updateLastTrade(lastTradeSignal, LastTradeTime, lastTradePrice, l
 
 function setTradeCandles(candles) {
   tradeCandleCloses = candles;
+  console.log("Trade Candles Set", candles);
+
 }
 
 function updatePartial(value, slOrder) {
@@ -1259,26 +1271,17 @@ async function getCandlesFromDb() {
   }
 }
 
-async function addCandleCloseToDb(closePrice) {
+async function addCandleCloseToDb(candle) {
   try {
-    // Skip if no valid price
-    if (closePrice === undefined || closePrice === null) {
-      return null;
-    }
+    if (!candle) return null;
 
     const response = await axios.post(
       `${process.env.backendURL}/bot/trade-candles`,
-      { closePrice },
-      {
-        headers: { Authorization: `Bearer A.saboor786` }
-      }
+      { candle },   // ✅ send candle object
+      { headers: { Authorization: `Bearer A.saboor786` } }
     );
 
-    if (response.data.success) {
-      return response.data;
-    }
-
-    return null;
+    return response.data;
   } catch (err) {
     console.error("❌ Failed to add candle to DB:", err.message);
     return null;
@@ -1622,11 +1625,11 @@ async function signalChanged(newSignal, restStatus, ema200) {
   }
 }
 
-async function addCandleClose(closePrice) {
+async function addCandleClose(candle) {
   if (prevTradePrice !== null) {
-    tradeCandleCloses.push(closePrice);
-    await addCandleCloseToDb(closePrice);
-    console.log(`📈 Candle close added: ${closePrice} (Total: ${tradeCandleCloses.length})`);
+    tradeCandleCloses.push(candle);
+    await addCandleCloseToDb(candle);
+    console.log(`📈 Candle close added: ${candle} (Total: ${tradeCandleCloses.length})`);
   }
 }
 
@@ -1645,7 +1648,8 @@ async function handleMfeandMea(prevTradePrice, prevTradeTime, prevTradeType) {
         mfe: excursion.mfe,
         mae: excursion.mae,
         mfePercent: excursion.mfePercent,
-        maePercent: excursion.maePercent
+        maePercent: excursion.maePercent,
+        candlesData: tradeCandleCloses
       },
       {
         headers: { Authorization: `Bearer A.saboor786` }
@@ -1680,11 +1684,6 @@ async function checkSignal() {
     if (status === 1 && ohlcv && ohlcv.length > 0) {
       const last = ohlcv[ohlcv.length - 1];
 
-      // 1) Your existing trade-MFE closes
-      const latestCandleClose = last.closes;
-      addCandleClose(latestCandleClose);
-
-      // 2) NEW: append full OHLCV to CandlesData
       const candleForDb = {
         openTime: last.openTime,
         open: last.open,
@@ -1695,6 +1694,7 @@ async function checkSignal() {
         closeTime: last.closeTime,
       };
 
+      await addCandleClose(candleForDb); // ✅ send normalized candle
       await appendCandleToDb(candleForDb, '3m');
     }
 
@@ -2036,7 +2036,7 @@ async function checkTPorSL(lastSignal) {
         // Mark partial hit so you don't repeat
         partialTPHit = true;
         let newSlOrderId = null;
-        
+
         const lockProfitPct = currentTP * PARTIAL_LOCK_PCT_OF_TP; // 5% of TP distance
 
         // signed SL value so it moves into profit direction
