@@ -9,7 +9,7 @@ app.use(express.urlencoded({ extended: true }));
 const port = 5000; // ✅ right
 const mongoose = require("mongoose");
 const BotRouter = require('./app/routes/botRoutes.js');
-const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, calculateEmaSignal, setTpSl, setLastTradeSignal, getLastTradeFromDB, SetLastDetails, getCandlesFromDb, setTradeCandles, updatePartial } = require('./botrunner.js');
+const { getBotStatusFromDB, updateBotStatus, startLoop, updLastSignal, initTradeCount, calculateEmaSignal, setTpSl, setLastTradeSignal, getLastTradeFromDB, SetLastDetails, getCandlesFromDb, setTradeCandles, updatePartial, setLiveTradeCtx } = require('./botrunner.js');
 const { startPriceSocket, startCandleSocket, prefillCandles, initCandleBufferFromDbOrPrefill } = require('./binanceWebSocket.js');
 let symbol = process.env.symbol;
 
@@ -103,7 +103,23 @@ mongoose.connect(process.env.DbUrl).then(() => {
 
             if (tradeRes) {
 
-              const { type, realizedProfit, slOrderId } = tradeRes.data;
+              const { type, realizedProfit, slOrderId, entryPrice, tpPctDec, positionSize, positionSizeUSD, tp1OrderId } = tradeRes.data;
+
+              let liveTradeCtx = {
+                symbol,
+                type,                 // "BUY" or "SELL"
+                entryPrice,
+                tpPctDec,
+
+                fullQty: positionSize,        // total position qty at entry
+                fullUsd: positionSizeUSD,     // total notional you used
+
+                tp1OrderId,
+                slClientAlgoId: slOrderId,
+              };
+
+              setLiveTradeCtx(liveTradeCtx);
+
               let tpHit = realizedProfit > 0 ? true : false;
 
               setLastTradeSignal(type);

@@ -5,6 +5,7 @@ const tradeSchema = new mongoose.Schema({
     entryTime: Date,
     entryPrice: Number,
     tpPrice: Number,
+    tpPctDec: Number,
     partialTpPrice: Number,
     slPrice: Number,
     realizedProfit: {

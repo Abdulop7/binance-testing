@@ -556,7 +556,7 @@ async function StopBot(req, res) {
 
 async function SaveTrade(req, res) {
 
-    const { signal, time, price, positionSize, positionSizeUSD, slope, leverage, candleTimestamp, atr, real, slPrice, partialTpPrice, tpPrice, slOrderId, tp1OrderId, tp2OrderId } = req.body;
+    const { signal, time, price, positionSize, positionSizeUSD, slope, leverage, candleTimestamp, atr, real, slPrice, partialTpPrice, tpPrice, slOrderId, tp1OrderId, tp2OrderId, tpPctDec } = req.body;
     activeTrade = {
         entryTime: time,
         entryPrice: price,
@@ -573,7 +573,8 @@ async function SaveTrade(req, res) {
         tpPrice,
         slOrderId,
         tp1OrderId,
-        tp2OrderId
+        tp2OrderId,
+        tpPctDec
     };
     try {
         const newTrade = new Trade(activeTrade);

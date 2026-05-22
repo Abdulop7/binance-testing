@@ -3,6 +3,7 @@ const crypto = require('crypto');
 require('dotenv').config();
 const { EMA } = require("technicalindicators");
 const { getLatestPrice, getLatestCandle } = require("./binanceWebSocket");
+const WebSocket = require("ws");
 
 let LiveTrading = true
 let BinanceTrading = false
@@ -16,6 +17,14 @@ const PRICE_PRECISION = 2;  // e.g. 2 decimals for BNBUSDT
 const QTY_PRECISION = 1;
 
 //---------------------------
+
+let userWS = null;
+let listenKey = null;
+let keepAliveTimer = null;
+
+// store what we need for “instant SL move”
+let liveTradeCtx = null;
+// { symbol, type, entryPrice, tpPctDec, tp1OrderId, slClientAlgoId }
 
 const partialLevelPct = 0.3; // Take Partial At 30% tp
 const PARTIAL_LOCK_PCT_OF_TP = 0.05; // 5% of the full TP distance after Partial Hit
@@ -41,6 +50,7 @@ let subscriptions = [];
 let latestEmaPack = null; // { ema9, ema21, ema50, ema200, signal }
 const SL_MATCH_PARTIAL = true; // <--- turn on
 
+
 // Example config (keep your own values)
 const OPTIMIZER_DAYS = 30;          // how many days of history to use
 const MIN_TRADES_FOR_DATASET = 50;  // minimum trades overall to even run optimizer
@@ -51,6 +61,182 @@ const MIN_WR_ATR = 50;        // minimum winrate% for a combo to be considered "
 
 // Our Position Size for 100$ in Binance will be = 1000$ position Size with 10x leverage
 // Our Position Size for 100$ in Testing will be = 1000$ position Size with no Leverage because we cannot apply leverage in Simultation
+
+// ✅ Safe-wrapped (returns string listenKey or null)
+async function createFuturesListenKey() {
+  return safeAsync("Create Futures listenKey", async () => {
+    const resp = await axios.post(
+      "https://fapi.binance.com/fapi/v1/listenKey",
+      null,
+      { headers: { "X-MBX-APIKEY": process.env.apiKey }, timeout: 15000 }
+    );
+    return resp?.data?.listenKey || null;
+  });
+}
+
+// ✅ Safe-wrapped (returns resp.data or null)
+async function keepAliveFuturesListenKey(key) {
+  return safeAsync("KeepAlive Futures listenKey", async () => {
+    const resp = await axios.put(
+      "https://fapi.binance.com/fapi/v1/listenKey",
+      null,
+      {
+        params: { listenKey: key },
+        headers: { "X-MBX-APIKEY": process.env.apiKey },
+        timeout: 15000
+      }
+    );
+    return resp?.data ?? null;
+  });
+}
+
+async function startUserStreamIfNeeded() {
+  if (userWS && userWS.readyState === WebSocket.OPEN) return;
+
+  listenKey = await createFuturesListenKey();
+
+  userWS = new WebSocket(`wss://fstream.binance.com/private/ws/${listenKey}`);
+
+  userWS.on("open", () => {
+    console.log("👂 UserData stream connected");
+  });
+
+  userWS.on("message", async (raw) => {
+    try {
+      const msg = JSON.parse(raw.toString());
+
+      // We care about fills:
+      if (msg.e !== "ORDER_TRADE_UPDATE") return;
+
+      const o = msg.o; // order payload
+      // o.s symbol, o.i orderId, o.X status, o.x executionType
+      if (!o) return;
+
+      await handleOrderTradeUpdate(o);
+    } catch (e) {
+      console.error("UserData parse error:", e.message);
+    }
+  });
+
+  userWS.on("close", () => {
+    console.log("⚠️ UserData stream closed. Reconnecting...");
+    stopUserStream();
+    setTimeout(() => startUserStreamIfNeeded().catch(() => { }), 2000);
+  });
+
+  userWS.on("error", (err) => {
+    console.error("❌ UserData WS error:", err.message);
+  });
+
+  // keepalive every 25-30 mins
+  keepAliveTimer = setInterval(() => {
+    if (listenKey) keepAliveFuturesListenKey(listenKey).catch(() => { });
+  }, 50 * 60 * 1000);
+}
+
+function stopUserStream() {
+  if (keepAliveTimer) clearInterval(keepAliveTimer);
+  keepAliveTimer = null;
+
+  if (userWS) {
+    try { userWS.terminate(); } catch { }
+  }
+  userWS = null;
+  listenKey = null;
+}
+
+async function handleOrderTradeUpdate(o) {
+  if (!liveTradeCtx) return;
+  if (o.s !== liveTradeCtx.symbol) return;
+  if (o.x !== "TRADE") return;
+
+  // If you only want to react once TP1 is completely filled:
+  if (o.X !== "FILLED") return;
+
+  if (String(o.i) !== String(liveTradeCtx.tp1OrderId)) return;
+  if (partialTPHit) return;
+
+  partialTPHit = true;
+
+  // --- 1) extract fill data ---
+  const filledQty = Number(o.z ?? o.l);                 // executed quantity
+  const fillPrice = Number(o.ap ?? o.L ?? o.p);         // avg fill price preferred
+  if (!Number.isFinite(filledQty) || filledQty <= 0) return;
+  if (!Number.isFinite(fillPrice) || fillPrice <= 0) return;
+
+  // --- 2) compute remaining position size ---
+  const fullQty = Number(liveTradeCtx.fullQty);
+  const fullUsd = Number(liveTradeCtx.fullUsd);
+
+  const safeFullQty = fullQty > 0 ? fullQty : filledQty;
+  const fractionClosed = Math.min(filledQty / safeFullQty, 1);
+
+  const remainingQty = roundQty(Math.max(safeFullQty - filledQty, 0));
+  const remainingUsd = Math.max(fullUsd * (remainingQty / safeFullQty), 0);
+
+  // --- 3) compute closed profit ---
+  // Prefer Binance realized pnl if provided by futures stream:
+  // (In Binance futures ORDER_TRADE_UPDATE, this is often `rp`)
+  let closedProfitUsd = Number(o.rp);
+  if (!Number.isFinite(closedProfitUsd)) {
+    const pnlPct =
+      liveTradeCtx.type === "BUY"
+        ? (fillPrice - liveTradeCtx.entryPrice) / liveTradeCtx.entryPrice
+        : (liveTradeCtx.entryPrice - fillPrice) / liveTradeCtx.entryPrice;
+
+    closedProfitUsd = pnlPct * fullUsd * fractionClosed;
+  }
+
+  // --- 4) move SL immediately (your existing logic) ---
+  const lockProfitPct = liveTradeCtx.tpPctDec * PARTIAL_LOCK_PCT_OF_TP;
+
+  const newSlPrice = liveTradeCtx.type === "BUY"
+    ? liveTradeCtx.entryPrice * (1 + lockProfitPct)
+    : liveTradeCtx.entryPrice * (1 - lockProfitPct);
+
+  let newSlOrderId = null;
+
+  if (BinanceTrading) {
+    // cancel old SL
+    const oldId = liveTradeCtx.slClientAlgoId;
+    if (oldId) await safeAsync("Cancel old SL", () => CancelFuturesPlaceStopMarket(oldId));
+
+    // place new SL
+    const beSide = liveTradeCtx.type === "BUY" ? "SELL" : "BUY";
+    const beOrder = {
+      algoType: "CONDITIONAL",
+      symbol: liveTradeCtx.symbol,
+      side: beSide,
+      type: "STOP_MARKET",
+      triggerprice: roundPrice(newSlPrice),
+      closePosition: true,
+      workingType: "MARK_PRICE",
+      timestamp: new Date().toISOString()
+    };
+
+    const beResp = await safeAsync("Place locked SL", () => futuresPlaceStopMarket(beOrder));
+    newSlOrderId = beResp?.clientAlgoId ? String(beResp.clientAlgoId) : null;
+
+    if (newSlOrderId) {
+      liveTradeCtx.slClientAlgoId = newSlOrderId;
+      activeSlOrderId = newSlOrderId;
+    }
+  }
+
+  // --- 5) update DB like your candle-based partial did ---
+  await safeAsync("DB upd-partial (from WS)", () =>
+    axios.post(`${process.env.backendURL}/bot/upd-partial`, {
+      positionSize: remainingQty,
+      positionSizeUSD: remainingUsd,
+      closedProfit: closedProfitUsd.toFixed(2),
+      ...(newSlOrderId ? { slOrderId: newSlOrderId } : {}),
+    }, { headers: { Authorization: `Bearer A.saboor786` } })
+  );
+
+  console.log("✅ Partial updated from WS", {
+    filledQty, fillPrice, remainingQty, remainingUsd, closedProfitUsd
+  });
+}
 
 function atrMultToPctDec(atr, entryPrice, atrMult) {
   // returns decimal percent (0.01 = 1%)
@@ -1182,10 +1368,12 @@ function updateEMA(emaNow) {
 
 
 
-async function setLastTradeSignal(signal) {
-
+function setLastTradeSignal(signal) {
   lastTradeSignal = signal;
+}
 
+function setLiveTradeCtx(liveTradeCtxFromDb) {
+  liveTradeCtx = liveTradeCtxFromDb;
 }
 
 function updLastSignal(newSignal) {
@@ -1240,7 +1428,6 @@ async function updateLastTrade(lastTradeSignal, LastTradeTime, lastTradePrice, l
 
 function setTradeCandles(candles) {
   tradeCandleCloses = candles;
-  console.log("Trade Candles Set", candles);
 
 }
 
@@ -1385,6 +1572,7 @@ async function getLastTradeFromDB() {
 async function placeOrder(signal, ema200) {
   try {
     partialTPHit = false;  // reset for new trade
+    liveTradeCtx = null;
     partialLockedSLPrice = null
     let leverage = 10
     let ids = null;
@@ -1476,21 +1664,41 @@ async function placeOrder(signal, ema200) {
 
     // If we actually opened a futures position, place bracket orders on Binance
     if (orderExecuted && LiveTrading) {
-      console.log(
-        `🔧 Placing bracket: entry=${entryPrice}, qty=${pairQuantity}, ` +
-        `TP=${(currentTP * 100).toFixed(3)}%, SL=${(currentSL * 100).toFixed(3)}%`
-      );
+      await startUserStreamIfNeeded();
 
-      ids = await placeBracketOrders(
-        signal,        // "BUY" or "SELL"
+      if (BinanceTrading) {
+        console.log(
+          `🔧 Placing bracket: entry=${entryPrice}, qty=${pairQuantity}, ` +
+          `TP=${(currentTP * 100).toFixed(3)}%, SL=${(currentSL * 100).toFixed(3)}%`
+        );
+
+        ids = await placeBracketOrders(
+          signal,        // "BUY" or "SELL"
+          entryPrice,
+          pairQuantity,
+          currentTP,     // decimal, e.g. 0.0085
+          currentSL,     // decimal
+          0.5            // 50% partial
+        );
+
+        activeSlOrderId = ids?.slOrderId;
+      }
+
+      liveTradeCtx = {
+        symbol,
+        type: signal,                 // "BUY" or "SELL"
         entryPrice,
-        pairQuantity,
-        currentTP,     // decimal, e.g. 0.0085
-        currentSL,     // decimal
-        0.5            // 50% partial
-      );
+        tpPctDec: currentTP,
 
-      activeSlOrderId = ids?.slOrderId;
+        fullQty: pairQuantity,        // total position qty at entry
+        fullUsd: positionSizeUSD,     // total notional you used
+
+        tp1OrderId: ids?.partialTpOrderId,
+        slClientAlgoId: ids?.slOrderId,
+      };
+
+      console.log("🎯 Armed UserData listener for TP1:", liveTradeCtx.tp1OrderId);
+
 
     }
 
@@ -1533,6 +1741,7 @@ async function placeOrder(signal, ema200) {
       tpPrice: fullTpPrice,
       partialTpPrice,
       slPrice,
+      tpPctDec: currentTP,
 
       // NEW:
       slOrderId: ids?.slOrderId ?? null,
@@ -2216,6 +2425,9 @@ async function checkTPorSL(lastSignal) {
 
         console.log(`Trade Closed for ${type} at Price ${exitPrice}`);
 
+        liveTradeCtx = null;
+        partialTPHit = false;
+        partialLockedSLPrice = null;
         lastTradeSignal = null;
       }
     }
@@ -2460,5 +2672,6 @@ module.exports = {
   updatePartial,
   futuresGetSigned,
   futuresPostSigned,
-  futuresDeleteSigned
+  futuresDeleteSigned,
+  setLiveTradeCtx
 };
