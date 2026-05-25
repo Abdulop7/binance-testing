@@ -1663,8 +1663,8 @@ async function placeOrder(signal, ema200) {
     const pairQuantity = Number((positionSizeUSD / entryPrice).toFixed(1)); // base asset qty
 
     // If we actually opened a futures position, place bracket orders on Binance
-    if ( LiveTrading) { 
-    // if (orderExecuted && LiveTrading) { 
+
+    if (orderExecuted && LiveTrading) { 
       await startUserStreamIfNeeded();
 
       if (BinanceTrading) {
