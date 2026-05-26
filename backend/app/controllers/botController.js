@@ -376,42 +376,42 @@ async function delCandlesData(req, res) {
 }
 
 async function addTradeCandleClose(req, res) {
-  try {
-    const { candle } = req.body;
+    try {
+        const { candle } = req.body;
 
-    if (
-      !candle ||
-      typeof candle.openTime !== "number" ||
-      typeof candle.closeTime !== "number"
-    ) {
-      return res.status(400).json({ success: false, msg: "Invalid candle" });
+        if (
+            !candle ||
+            typeof candle.openTime !== "number" ||
+            typeof candle.closeTime !== "number"
+        ) {
+            return res.status(400).json({ success: false, msg: "Invalid candle" });
+        }
+
+        // normalize + force numbers
+        const normalized = {
+            openTime: Number(candle.openTime),
+            open: Number(candle.open),
+            high: Number(candle.high),
+            low: Number(candle.low),
+            close: Number(candle.close),
+            volume: Number(candle.volume),
+            closeTime: Number(candle.closeTime),
+        };
+
+        let doc = await TradeCandles.findOne({});
+        if (!doc) doc = new TradeCandles({ candleCloses: [] });
+
+        doc.candleCloses.push(normalized);
+        await doc.save();
+
+        return res.json({
+            success: true,
+            totalCandles: doc.candleCloses.length,
+        });
+    } catch (err) {
+        console.error("Add candle close error:", err.message);
+        return res.status(500).json({ success: false, msg: err.message });
     }
-
-    // normalize + force numbers
-    const normalized = {
-      openTime: Number(candle.openTime),
-      open: Number(candle.open),
-      high: Number(candle.high),
-      low: Number(candle.low),
-      close: Number(candle.close),
-      volume: Number(candle.volume),
-      closeTime: Number(candle.closeTime),
-    };
-
-    let doc = await TradeCandles.findOne({});
-    if (!doc) doc = new TradeCandles({ candleCloses: [] });
-
-    doc.candleCloses.push(normalized);
-    await doc.save();
-
-    return res.json({
-      success: true,
-      totalCandles: doc.candleCloses.length,
-    });
-  } catch (err) {
-    console.error("Add candle close error:", err.message);
-    return res.status(500).json({ success: false, msg: err.message });
-  }
 }
 async function clearAllTradeCandles(req, res) {
     try {
@@ -742,9 +742,11 @@ async function UpdateTradeHistoryMFE(req, res) {
 }
 
 async function AllTrades(req, res) {
+    const trades = await TradeHistory.find({})
+        .sort({ time: -1 })   // ✅ sort by actual field in schema
+        .lean();
 
-    let trades = await TradeHistory.find().sort({ createdAt: -1 })
-    res.json(trades)
+    res.json(trades);
 }
 
 async function AllRealTrades(req, res) {
@@ -824,7 +826,7 @@ async function updatePartial(req, res) {
         trade.positionSizeUSD = positionSizeUSD;
         trade.realizedProfit = (trade.realizedProfit) + (closedProfit);
         trade.slOrderId = String(slOrderId);
-
+        
         await trade.save();
 
         res.json({
