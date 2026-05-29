@@ -15,6 +15,7 @@ const RR_TARGET = 1.5;
 // Adjust these for your symbol's tickSize / lotSize
 const PRICE_PRECISION = 2;  // e.g. 2 decimals for BNBUSDT
 const QTY_PRECISION = 1;
+const partialLevelPct = 0.2; // Take Partial At 20% tp
 
 //---------------------------
 
@@ -26,7 +27,6 @@ let keepAliveTimer = null;
 let liveTradeCtx = null;
 // { symbol, type, entryPrice, tpPctDec, tp1OrderId, slClientAlgoId }
 
-const partialLevelPct = 0.3; // Take Partial At 30% tp
 const PARTIAL_LOCK_PCT_OF_TP = 0.05; // 5% of the full TP distance after Partial Hit
 let partialLockedSLPrice = null;
 const TP_ATR_MULT = SL_ATR_MULT * RR_TARGET;
